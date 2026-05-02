@@ -1,4 +1,3 @@
--- [[ CRYO UI - VENYX STYLE REPLICA ]]
 local CryoLib = {}
 CryoLib.__index = CryoLib
 
@@ -6,14 +5,14 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = game:GetService("Players").LocalPlayer
 
--- Цвета точь-в-точь как в твоем game.lua
+-- Палитра строго по твоему исходнику game.lua
 local Theme = {
     Background = Color3.fromRGB(15, 15, 15),
-    Secondary = Color3.fromRGB(20, 20, 20),
+    Element = Color3.fromRGB(22, 22, 22),
     Accent = Color3.fromRGB(110, 150, 255),
-    Outline = Color3.fromRGB(30, 30, 30),
-    Text = Color3.fromRGB(255, 255, 255),
-    DisabledText = Color3.fromRGB(130, 130, 130)
+    Outline = Color3.fromRGB(35, 35, 35),
+    Text = Color3.fromRGB(240, 240, 240),
+    Disabled = Color3.fromRGB(150, 150, 150)
 }
 
 function CryoLib:CreateWindow(titleText)
@@ -24,38 +23,38 @@ function CryoLib:CreateWindow(titleText)
     self.gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
     self.gui.ResetOnSpawn = false
 
-    -- Main
+    -- Main Panel
     self.main = Instance.new("Frame")
-    self.main.Size = UDim2.new(0, 450, 0, 550)
-    self.main.Position = UDim2.new(0.5, -225, 0.5, -275)
+    self.main.Size = UDim2.new(0, 430, 0, 530)
+    self.main.Position = UDim2.new(0.5, -215, 0.5, -265)
     self.main.BackgroundColor3 = Theme.Background
     self.main.BorderSizePixel = 0
     self.main.Parent = self.gui
 
-    Instance.new("UICorner", self.main).CornerRadius = UDim.new(0, 4)
-    local mainStroke = Instance.new("UIStroke", self.main)
-    mainStroke.Color = Theme.Outline
-    mainStroke.Thickness = 1
+    Instance.new("UICorner", self.main).CornerRadius = UDim.new(0, 8)
+    local stroke = Instance.new("UIStroke", self.main)
+    stroke.Color = Theme.Outline
+    stroke.Thickness = 1.2
 
-    -- Header (Top Bar)
+    -- Header (TopBar)
     local header = Instance.new("Frame")
-    header.Size = UDim2.new(1, 0, 0, 40)
-    header.BackgroundColor3 = Theme.Secondary
+    header.Size = UDim2.new(1, 0, 0, 45)
+    header.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     header.BorderSizePixel = 0
     header.Parent = self.main
-    Instance.new("UICorner", header).CornerRadius = UDim.new(0, 4)
+    Instance.new("UICorner", header).CornerRadius = UDim.new(0, 8)
 
-    -- Логотип слева
+    -- Логотип
     local logo = Instance.new("ImageLabel")
-    logo.Size = UDim2.new(0, 26, 0, 26)
-    logo.Position = UDim2.new(0, 10, 0.5, -13)
+    logo.Size = UDim2.new(0, 30, 0, 30)
+    logo.Position = UDim2.new(0, 12, 0.5, -15)
     logo.BackgroundTransparency = 1
     logo.Image = "rbxassetid://75309286909772"
     logo.Parent = header
 
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -50, 1, 0)
-    title.Position = UDim2.new(0, 42, 0, 0)
+    title.Size = UDim2.new(1, -60, 1, 0)
+    title.Position = UDim2.new(0, 52, 0, 0)
     title.BackgroundTransparency = 1
     title.Text = titleText
     title.Font = Enum.Font.GothamBold
@@ -64,37 +63,30 @@ function CryoLib:CreateWindow(titleText)
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = header
 
-    -- Контейнер для кнопок вкладок (Sidebar)
+    -- Sidebar (Tabs Container)
     self.sidebar = Instance.new("Frame")
-    self.sidebar.Size = UDim2.new(0, 120, 1, -40)
-    self.sidebar.Position = UDim2.new(0, 0, 0, 40)
-    self.sidebar.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-    self.sidebar.BorderSizePixel = 0
+    self.sidebar.Size = UDim2.new(0, 120, 1, -45)
+    self.sidebar.Position = UDim2.new(0, 0, 0, 45)
+    self.sidebar.BackgroundTransparency = 1
     self.sidebar.Parent = self.main
-    
-    local sideLayout = Instance.new("UIListLayout", self.sidebar)
-    sideLayout.Padding = UDim.new(0, 2)
-    sideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    Instance.new("UIListLayout", self.sidebar).Padding = UDim.new(0, 2)
 
-    -- Основная зона контента
     self.container = Instance.new("Frame")
-    self.container.Size = UDim2.new(1, -130, 1, -50)
-    self.container.Position = UDim2.new(0, 125, 0, 45)
+    self.container.Size = UDim2.new(1, -135, 1, -55)
+    self.container.Position = UDim2.new(0, 125, 0, 50)
     self.container.BackgroundTransparency = 1
     self.container.Parent = self.main
 
-    -- Та самая плавающая кнопка
+    -- Плавающая кнопка
     local float = Instance.new("ImageButton")
-    float.Size = UDim2.new(0, 50, 0, 50)
-    float.Position = UDim2.new(0, 20, 0.5, -25)
-    float.BackgroundColor3 = Theme.Secondary
+    float.Size = UDim2.new(0, 55, 0, 55)
+    float.Position = UDim2.new(0, 30, 0.5, -27)
+    float.BackgroundColor3 = Theme.Background
     float.Image = "rbxassetid://75309286909772"
     float.Parent = self.gui
     Instance.new("UICorner", float).CornerRadius = UDim.new(1, 0)
-    local fStroke = Instance.new("UIStroke", float)
-    fStroke.Color = Theme.Accent
-    fStroke.Thickness = 2
-
+    Instance.new("UIStroke", float).Color = Theme.Accent
+    
     float.MouseButton1Click:Connect(function()
         self.main.Visible = not self.main.Visible
     end)
@@ -108,27 +100,26 @@ end
 
 function CryoLib:AddTab(name)
     local tabBtn = Instance.new("TextButton")
-    tabBtn.Size = UDim2.new(0.9, 0, 0, 30)
+    tabBtn.Size = UDim2.new(1, 0, 0, 35)
     tabBtn.BackgroundTransparency = 1
     tabBtn.Text = name
     tabBtn.Font = Enum.Font.GothamBold
-    tabBtn.TextColor3 = Theme.DisabledText
+    tabBtn.TextColor3 = Theme.Disabled
     tabBtn.TextSize = 13
     tabBtn.Parent = self.sidebar
 
     local scroll = Instance.new("ScrollingFrame")
     scroll.Size = UDim2.new(1, 0, 1, 0)
     scroll.BackgroundTransparency = 1
-    scroll.BorderSizePixel = 0
-    scroll.ScrollBarThickness = 2
+    scroll.ScrollBarThickness = 0
     scroll.Visible = false
     scroll.Parent = self.container
-    Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 5)
+    Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 6)
 
     tabBtn.MouseButton1Click:Connect(function()
         for _, v in pairs(self.tabs) do
             v.s.Visible = false
-            v.b.TextColor3 = Theme.DisabledText
+            v.b.TextColor3 = Theme.Disabled
         end
         scroll.Visible = true
         tabBtn.TextColor3 = Theme.Text
@@ -139,53 +130,49 @@ function CryoLib:AddTab(name)
 
     local Elements = {}
 
-    -- Элемент: Кнопка (как в Venyx)
     function Elements:AddButton(text, callback)
-        local bFrame = Instance.new("TextButton")
-        bFrame.Size = UDim2.new(1, -5, 0, 32)
-        bFrame.BackgroundColor3 = Theme.Secondary
-        bFrame.Text = text
-        bFrame.Font = Enum.Font.Gotham
-        bFrame.TextColor3 = Theme.Text
-        bFrame.TextSize = 13
-        bFrame.Parent = scroll
-        
-        Instance.new("UICorner", bFrame).CornerRadius = UDim.new(0, 4)
-        Instance.new("UIStroke", bFrame).Color = Theme.Outline
-
-        bFrame.MouseButton1Click:Connect(callback)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, 0, 0, 35)
+        btn.BackgroundColor3 = Theme.Element
+        btn.Text = text
+        btn.Font = Enum.Font.GothamBold
+        btn.TextColor3 = Theme.Text
+        btn.TextSize = 13
+        btn.Parent = scroll
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        Instance.new("UIStroke", btn).Color = Theme.Outline
+        btn.MouseButton1Click:Connect(callback)
     end
 
-    -- Элемент: Тоггл (как в Venyx)
     function Elements:AddToggle(text, callback)
         local state = false
         local tFrame = Instance.new("TextButton")
-        tFrame.Size = UDim2.new(1, -5, 0, 32)
-        tFrame.BackgroundColor3 = Theme.Secondary
+        tFrame.Size = UDim2.new(1, 0, 0, 35)
+        tFrame.BackgroundColor3 = Theme.Element
         tFrame.Text = ""
         tFrame.Parent = scroll
-        Instance.new("UICorner", tFrame).CornerRadius = UDim.new(0, 4)
+        Instance.new("UICorner", tFrame).CornerRadius = UDim.new(0, 6)
         Instance.new("UIStroke", tFrame).Color = Theme.Outline
 
         local label = Instance.new("TextLabel", tFrame)
-        label.Size = UDim2.new(1, -40, 1, 0)
-        label.Position = UDim2.new(0, 10, 0, 0)
+        label.Size = UDim2.new(1, -50, 1, 0)
+        label.Position = UDim2.new(0, 12, 0, 0)
+        label.BackgroundTransparency = 1
         label.Text = text
-        label.Font = Enum.Font.Gotham
+        label.Font = Enum.Font.GothamBold
         label.TextColor3 = Theme.Text
         label.TextSize = 13
         label.TextXAlignment = Enum.TextXAlignment.Left
-        label.BackgroundTransparency = 1
 
-        local indicator = Instance.new("Frame", tFrame)
-        indicator.Size = UDim2.new(0, 16, 0, 16)
-        indicator.Position = UDim2.new(1, -26, 0.5, -8)
-        indicator.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        Instance.new("UICorner", indicator).CornerRadius = UDim.new(0, 4)
-        
+        local box = Instance.new("Frame", tFrame)
+        box.Size = UDim2.new(0, 18, 0, 18)
+        box.Position = UDim2.new(1, -30, 0.5, -9)
+        box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
+
         tFrame.MouseButton1Click:Connect(function()
             state = not state
-            TweenService:Create(indicator, TweenInfo.new(0.2), {BackgroundColor3 = state and Theme.Accent or Color3.fromRGB(40, 40, 40)}):Play()
+            TweenService:Create(box, TweenInfo.new(0.2), {BackgroundColor3 = state and Theme.Accent or Color3.fromRGB(40, 40, 40)}):Play()
             callback(state)
         end)
     end
