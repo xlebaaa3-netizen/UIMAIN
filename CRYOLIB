@@ -1,98 +1,128 @@
+-- [[ CRYO LIBRARY - REBUILT FROM SOURCE ]]
 local CryoLib = {}
 CryoLib.__index = CryoLib
 
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local LocalPlayer = game:GetService("Players").LocalPlayer
 
--- Единая палитра из твоего скрина
+-- Твоя палитра из исходника
 local Theme = {
-    Main = Color3.fromRGB(15, 15, 20),
-    Header = Color3.fromRGB(20, 20, 25),
-    Accent = Color3.fromRGB(110, 150, 255), -- Тот самый мягкий голубой
-    Text = Color3.fromRGB(230, 230, 230),   -- Не ослепляющий белый
-    DarkText = Color3.fromRGB(150, 150, 150),
-    Element = Color3.fromRGB(25, 25, 30)
+    Background = Color3.fromRGB(13, 13, 17),
+    Header = Color3.fromRGB(18, 18, 24),
+    Accent = Color3.fromRGB(110, 150, 255),
+    Stroke = Color3.fromRGB(40, 40, 50),
+    Text = Color3.fromRGB(240, 240, 240),
+    PlaceholderText = Color3.fromRGB(140, 140, 150),
+    Element = Color3.fromRGB(22, 22, 28)
 }
 
-local function QuickTween(obj, prop, time)
-    TweenService:Create(obj, TweenInfo.new(time or 0.2, Enum.EasingStyle.Quad), prop):Play()
+local function Ripple(obj)
+    spawn(function()
+        local mouse = LocalPlayer:GetMouse()
+        local circle = Instance.new("ImageLabel")
+        circle.Parent = obj
+        circle.BackgroundTransparency = 1
+        circle.Image = "rbxassetid://266543268"
+        circle.ImageColor3 = Color3.fromRGB(255, 255, 255)
+        circle.ImageTransparency = 0.8
+        circle.ZIndex = 10
+        
+        local pos = Vector2.new(mouse.X, mouse.Y) - obj.AbsolutePosition
+        circle.Position = UDim2.new(0, pos.X, 0, pos.Y)
+        circle.Size = UDim2.new(0, 0, 0, 0)
+        
+        circle:TweenSizeAndPosition(UDim2.new(0, 200, 0, 200), UDim2.new(0, pos.X - 100, 0, pos.Y - 100), "Out", "Quad", 0.5, true)
+        for i = 1, 10 do
+            circle.ImageTransparency = 0.8 + (i * 0.02)
+            task.wait(0.05)
+        end
+        circle:Destroy()
+    end)
 end
 
 function CryoLib:CreateWindow(titleText)
     local self = setmetatable({}, CryoLib)
-    self.isOpen = true
     
     self.gui = Instance.new("ScreenGui")
-    self.gui.Name = "CryoLib"
+    self.gui.Name = "Cryo_v3"
     self.gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    self.gui.IgnoreGuiInset = true
 
-    self.mainPanel = Instance.new("Frame")
-    self.mainPanel.Size = UDim2.new(0, 420, 0, 520)
-    self.mainPanel.Position = UDim2.new(0.5, -210, 0.5, -260)
-    self.mainPanel.BackgroundColor3 = Theme.Main
-    self.mainPanel.BorderSizePixel = 0
-    self.mainPanel.Parent = self.gui
-    Instance.new("UICorner", self.mainPanel).CornerRadius = UDim.new(0, 10)
+    -- Main Frame
+    self.main = Instance.new("Frame")
+    self.main.Size = UDim2.new(0, 420, 0, 500)
+    self.main.Position = UDim2.new(0.5, -210, 0.5, -250)
+    self.main.BackgroundColor3 = Theme.Background
+    self.main.BorderSizePixel = 0
+    self.main.Parent = self.gui
+    
+    local corner = Instance.new("UICorner", self.main)
+    corner.CornerRadius = UDim.new(0, 12)
+    
+    local stroke = Instance.new("UIStroke", self.main)
+    stroke.Color = Theme.Stroke
+    stroke.Thickness = 1.2
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
+    -- Header
     local header = Instance.new("Frame")
-    header.Size = UDim2.new(1, 0, 0, 50)
+    header.Size = UDim2.new(1, 0, 0, 45)
     header.BackgroundColor3 = Theme.Header
     header.BorderSizePixel = 0
-    header.Parent = self.mainPanel
-    Instance.new("UICorner", header).CornerRadius = UDim.new(0, 10)
+    header.Parent = self.main
+    Instance.new("UICorner", header).CornerRadius = UDim.new(0, 12)
 
-    -- Логотип
     local logo = Instance.new("ImageLabel")
-    logo.Size = UDim2.new(0, 32, 0, 32)
-    logo.Position = UDim2.new(0, 12, 0.5, -16)
+    logo.Size = UDim2.new(0, 28, 0, 28)
+    logo.Position = UDim2.new(0, 12, 0.5, -14)
     logo.BackgroundTransparency = 1
     logo.Image = "rbxassetid://75309286909772"
     logo.Parent = header
-    Instance.new("UICorner", logo).CornerRadius = UDim.new(0, 6)
 
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -60, 1, 0)
-    title.Position = UDim2.new(0, 52, 0, 0)
+    title.Position = UDim2.new(0, 48, 0, 0)
     title.BackgroundTransparency = 1
     title.Text = titleText
-    title.Font = Enum.Font.GothamBold -- Шрифт как в оригинале
-    title.TextSize = 18
+    title.Font = Enum.Font.GothamBold
     title.TextColor3 = Theme.Text
+    title.TextSize = 16
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = header
 
-    -- Контейнер вкладок
-    self.tabContainer = Instance.new("Frame")
-    self.tabContainer.Size = UDim2.new(0, 100, 1, -50)
-    self.tabContainer.Position = UDim2.new(0, 0, 0, 50)
-    self.tabContainer.BackgroundTransparency = 1
-    self.tabContainer.Parent = self.mainPanel
-    local l = Instance.new("UIListLayout", self.tabContainer)
-    l.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    -- Sidebar & Content
+    self.sidebar = Instance.new("Frame")
+    self.sidebar.Size = UDim2.new(0, 110, 1, -45)
+    self.sidebar.Position = UDim2.new(0, 0, 0, 45)
+    self.sidebar.BackgroundTransparency = 1
+    self.sidebar.Parent = self.main
+    
+    Instance.new("UIListLayout", self.sidebar).HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-    self.contentArea = Instance.new("Frame")
-    self.contentArea.Size = UDim2.new(1, -110, 1, -60)
-    self.contentArea.Position = UDim2.new(0, 105, 0, 55)
-    self.contentArea.BackgroundTransparency = 1
-    self.contentArea.Parent = self.mainPanel
+    self.container = Instance.new("Frame")
+    self.container.Size = UDim2.new(1, -120, 1, -55)
+    self.container.Position = UDim2.new(0, 115, 0, 50)
+    self.container.BackgroundTransparency = 1
+    self.container.Parent = self.main
 
-    -- Плавающая кнопка
+    -- Float Button
     local float = Instance.new("ImageButton")
     float.Size = UDim2.new(0, 50, 0, 50)
-    float.Position = UDim2.new(0, 20, 0.5, -25)
+    float.Position = UDim2.new(0, 30, 0.5, -25)
     float.BackgroundColor3 = Theme.Header
     float.Image = "rbxassetid://75309286909772"
     float.Parent = self.gui
     Instance.new("UICorner", float).CornerRadius = UDim.new(1, 0)
+    Instance.new("UIStroke", float).Color = Theme.Accent
+    
     float.MouseButton1Click:Connect(function()
-        self.isOpen = not self.isOpen
-        self.mainPanel.Visible = self.isOpen
+        self.main.Visible = not self.main.Visible
     end)
 
-    self:EnableDrag(header, self.mainPanel)
-    self:EnableDrag(float, float)
+    self:MakeDraggable(header, self.main)
+    self:MakeDraggable(float, float)
     
     self.tabs = {}
     return self
@@ -104,23 +134,22 @@ function CryoLib:AddTab(name)
     tabBtn.BackgroundTransparency = 1
     tabBtn.Text = name
     tabBtn.Font = Enum.Font.GothamBold
+    tabBtn.TextColor3 = Theme.PlaceholderText
     tabBtn.TextSize = 13
-    tabBtn.TextColor3 = Theme.DarkText
-    tabBtn.Parent = self.tabContainer
+    tabBtn.Parent = self.sidebar
 
     local scroll = Instance.new("ScrollingFrame")
     scroll.Size = UDim2.new(1, 0, 1, 0)
     scroll.BackgroundTransparency = 1
-    scroll.BorderSizePixel = 0
     scroll.ScrollBarThickness = 0
     scroll.Visible = false
-    scroll.Parent = self.contentArea
+    scroll.Parent = self.container
     Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 8)
 
     tabBtn.MouseButton1Click:Connect(function()
-        for _, t in pairs(self.tabs) do 
-            t.s.Visible = false 
-            t.b.TextColor3 = Theme.DarkText
+        for _, v in pairs(self.tabs) do
+            v.s.Visible = false
+            v.b.TextColor3 = Theme.PlaceholderText
         end
         scroll.Visible = true
         tabBtn.TextColor3 = Theme.Text
@@ -131,110 +160,78 @@ function CryoLib:AddTab(name)
 
     local Elements = {}
 
-    -- ИСПРАВЛЕННАЯ КНОПКА
     function Elements:AddButton(text, callback)
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1, 0, 0, 38)
+        btn.Size = UDim2.new(1, -10, 0, 38)
         btn.BackgroundColor3 = Theme.Element
         btn.Text = text
         btn.Font = Enum.Font.GothamBold
         btn.TextColor3 = Theme.Text
         btn.TextSize = 14
         btn.TextXAlignment = Enum.TextXAlignment.Left
+        btn.AutoButtonColor = false
+        btn.ClipsDescendants = true
         btn.Parent = scroll
+        
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        local s = Instance.new("UIStroke", btn)
+        s.Color = Theme.Stroke
+        s.Thickness = 0.8
+        
         Instance.new("UIPadding", btn).PaddingLeft = UDim.new(0, 12)
-        btn.MouseButton1Click:Connect(callback)
-    end
-
-    -- ИСПРАВЛЕННЫЙ ТОГГЛ
-    function Elements:AddToggle(text, callback)
-        local s = false
-        local f = Instance.new("Frame")
-        f.Size = UDim2.new(1, 0, 0, 38)
-        f.BackgroundColor3 = Theme.Element
-        f.Parent = scroll
-        Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
-
-        local l = Instance.new("TextLabel", f)
-        l.Size = UDim2.new(1, 0, 1, 0)
-        l.Position = UDim2.new(0, 12, 0, 0)
-        l.BackgroundTransparency = 1
-        l.Text = text
-        l.Font = Enum.Font.GothamBold
-        l.TextColor3 = Theme.Text
-        l.TextSize = 14
-        l.TextXAlignment = Enum.TextXAlignment.Left
-
-        local sw = Instance.new("TextButton", f)
-        sw.Size = UDim2.new(0, 36, 0, 18)
-        sw.Position = UDim2.new(1, -48, 0.5, -9)
-        sw.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-        sw.Text = ""
-        Instance.new("UICorner", sw).CornerRadius = UDim.new(1, 0)
-
-        local c = Instance.new("Frame", sw)
-        c.Size = UDim2.new(0, 14, 0, 14)
-        c.Position = UDim2.new(0, 2, 0.5, -7)
-        c.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-        Instance.new("UICorner", c).CornerRadius = UDim.new(1, 0)
-
-        sw.MouseButton1Click:Connect(function()
-            s = not s
-            QuickTween(c, {Position = s and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)})
-            QuickTween(sw, {BackgroundColor3 = s and Theme.Accent or Color3.fromRGB(50, 50, 55)})
-            callback(s)
+        
+        btn.MouseButton1Click:Connect(function()
+            Ripple(btn)
+            callback()
         end)
     end
 
-    -- ИСПРАВЛЕННЫЙ СЛАЙДЕР
-    function Elements:AddSlider(text, min, max, def, callback)
-        local f = Instance.new("Frame")
-        f.Size = UDim2.new(1, 0, 0, 45)
-        f.BackgroundColor3 = Theme.Element
-        f.Parent = scroll
-        Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
+    function Elements:AddToggle(text, callback)
+        local state = false
+        local tFrame = Instance.new("Frame")
+        tFrame.Size = UDim2.new(1, -10, 0, 40)
+        tFrame.BackgroundColor3 = Theme.Element
+        tFrame.Parent = scroll
+        Instance.new("UICorner", tFrame).CornerRadius = UDim.new(0, 6)
+        Instance.new("UIStroke", tFrame).Color = Theme.Stroke
 
-        local l = Instance.new("TextLabel", f)
-        l.Text = text .. ": " .. def
-        l.Size = UDim2.new(1, 0, 0, 20)
-        l.Position = UDim2.new(0, 12, 0, 6)
-        l.Font = Enum.Font.GothamBold
-        l.TextColor3 = Theme.Text
-        l.TextSize = 13
-        l.TextXAlignment = Enum.TextXAlignment.Left
-        l.BackgroundTransparency = 1
+        local label = Instance.new("TextLabel", tFrame)
+        label.Size = UDim2.new(1, -50, 1, 0)
+        label.Position = UDim2.new(0, 12, 0, 0)
+        label.BackgroundTransparency = 1
+        label.Text = text
+        label.Font = Enum.Font.GothamBold
+        label.TextColor3 = Theme.Text
+        label.TextSize = 14
+        label.TextXAlignment = Enum.TextXAlignment.Left
 
-        local b = Instance.new("Frame", f)
-        b.Size = UDim2.new(1, -24, 0, 4)
-        b.Position = UDim2.new(0, 12, 0, 32)
-        b.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-        Instance.new("UICorner", b)
+        local box = Instance.new("TextButton", tFrame)
+        box.Size = UDim2.new(0, 38, 0, 20)
+        box.Position = UDim2.new(1, -48, 0.5, -10)
+        box.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        box.Text = ""
+        Instance.new("UICorner", box).CornerRadius = UDim.new(1, 0)
+        
+        local inner = Instance.new("Frame", box)
+        inner.Size = UDim2.new(0, 14, 0, 14)
+        inner.Position = UDim2.new(0, 3, 0.5, -7)
+        inner.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+        Instance.new("UICorner", inner).CornerRadius = UDim.new(1, 0)
 
-        local fill = Instance.new("Frame", b)
-        fill.Size = UDim2.new((def-min)/(max-min), 0, 1, 0)
-        fill.BackgroundColor3 = Theme.Accent
-        Instance.new("UICorner", fill)
-
-        local drag = false
-        local function upd()
-            local p = math.clamp((UserInputService:GetMouseLocation().X - b.AbsolutePosition.X) / b.AbsoluteSize.X, 0, 1)
-            local v = math.floor(min + (max - min) * p)
-            fill.Size = UDim2.new(p, 0, 1, 0)
-            l.Text = text .. ": " .. v
-            callback(v)
-        end
-        b.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then drag = true; upd() end end)
-        UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then drag = false end end)
-        UserInputService.InputChanged:Connect(function(i) if drag and i.UserInputType == Enum.UserInputType.MouseMovement then upd() end end)
+        box.MouseButton1Click:Connect(function()
+            state = not state
+            TweenService:Create(inner, TweenInfo.new(0.2), {Position = state and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7)}):Play()
+            TweenService:Create(box, TweenInfo.new(0.2), {BackgroundColor3 = state and Theme.Accent or Color3.fromRGB(40, 40, 50)}):Play()
+            callback(state)
+        end)
     end
 
     return Elements
 end
 
-function CryoLib:EnableDrag(trigger, frame)
-    local dragStart, startPos, dragging
-    trigger.InputBegan:Connect(function(input)
+function CryoLib:MakeDraggable(obj, frame)
+    local dragging, dragInput, dragStart, startPos
+    obj.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             dragStart = input.Position
