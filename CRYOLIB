@@ -1,0 +1,31 @@
+-- Подключаем библиотеку
+local Cryo = loadstring(game:HttpGet("ссылка_на_твой_код"))()
+
+-- Создаём окно
+local hub = Cryo:CreateWindow("Cryo Hub")
+
+-- Добавляем таб
+local autoTab = hub:AddTab("Auto")
+
+-- Добавляем секцию в таб
+local jumpSection = autoTab:AddSection("Auto Jump")
+
+-- Добавляем элементы
+jumpSection:AddToggle("Auto Jump", function(state)
+    print("Auto Jump:", state)
+end)
+
+jumpSection:AddSlider("Delay", 0.1, 5, function(value)
+    print("Delay:", value)
+end)
+
+jumpSection:AddButton("Test Button", function()
+    print("Button clicked!")
+end)
+
+jumpSection:AddLabel("Some info text")
+
+-- Второй таб
+local miscTab = hub:AddTab("Misc")
+local settingsSection = miscTab:AddSection("Settings")
+settingsSection:AddLabel("No settings yet")
