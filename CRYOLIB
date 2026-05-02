@@ -1,14 +1,14 @@
--- ==================== CRYO LIBRARY (STABLE VERSION 2.0) ====================
+-- ==================== CRYO LIBRARY (ULTRA STABLE REWRITE) ====================
 local CryoLib = {}
 CryoLib.__index = CryoLib
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
+-- Утилиты
 local function SafeCall(callback, ...)
     if type(callback) == "function" then
         local success, err = pcall(callback, ...)
@@ -23,7 +23,7 @@ local function SafeTween(instance, tweenInfo, properties)
     return tween
 end
 
--- ==================== ОСНОВНЫЕ ФУНКЦИИ ====================
+-- ==================== МЕТОДЫ СОЗДАНИЯ UI ====================
 
 function CryoLib:CreateWindow(title)
     local existing = PlayerGui:FindFirstChild("CryoLibGUI")
@@ -32,131 +32,118 @@ function CryoLib:CreateWindow(title)
     local self = setmetatable({}, CryoLib)
     self._destroyed = false
     self.isOpen = false
-    self.minimized = false
-    self.connections = {} -- Для предотвращения утечек памяти
     self.tabs = {}
-    
+    self.connections = {}
+    self.originalSize = UDim2.new(0, 420, 0, 520)
+
+    -- Главный контейнер
     self.gui = Instance.new("ScreenGui")
     self.gui.Name = "CryoLibGUI"
     self.gui.ResetOnSpawn = false
     self.gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
     self.gui.Parent = PlayerGui
 
-    self:CreateMainPanel(title)
-    self:CreateFloatingButton()
-    self:SetupHotkey()
-
-    return self
-end
-
-function CryoLib:CreateMainPanel(title)
-    self.originalSize = UDim2.new(0, 420, 0, 520)
-    
+    -- Основная панель
     self.mainPanel = Instance.new("Frame")
     self.mainPanel.Name = "MainPanel"
-    self.mainPanel.Size = self.originalSize
-    self.mainPanel.Position = UDim2.new(0.5, -210, 0.5, -260)
+    self.mainPanel.Size = UDim2.new(0, 0, 0, 0) -- Начинаем с нуля для анимации
+    self.mainPanel.Position = UDim2.new(0.5, 0, 0.5, 0)
     self.mainPanel.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
     self.mainPanel.BorderSizePixel = 0
-    self.mainPanel.Active = true
     self.mainPanel.Visible = false
     self.mainPanel.ClipsDescendants = true
     self.mainPanel.Parent = self.gui
 
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 12)
-    corner.Parent = self.mainPanel
-
-    local stroke = Instance.new("UIStroke")
+    Instance.new("UICorner", self.mainPanel).CornerRadius = UDim.new(0, 12)
+    local stroke = Instance.new("UIStroke", self.mainPanel)
     stroke.Color = Color3.fromRGB(60, 60, 80)
     stroke.Thickness = 1.5
-    stroke.Parent = self.mainPanel
 
-    self:CreateHeader(title)
-    self:CreateTabContainer()
-    self:CreateContentArea()
-    self:SetupDragging()
+    -- Внутренние компоненты
+    self:Internal_CreateHeader(title)
+    self:Internal_CreateTabContainer()
+    self:Internal_CreateContentArea()
+    self:Internal_SetupDragging()
+    self:Internal_CreateFloatingButton()
+    
+    -- Хоткей
+    table.insert(self.connections, UserInputService.InputBegan:Connect(function(input, gpe)
+        if not gpe and input.KeyCode == Enum.KeyCode.K then
+            self:Toggle()
+        end
+    end))
+
+    -- Авто-открытие
+    task.spawn(function() self:Toggle() end)
+
+    return self
 end
 
--- [Упрощено для краткости, логика хедера и вкладок аналогична твоей, но с правками связей]
-function CryoLib:CreateHeader(title)
+function CryoLib:Internal_CreateHeader(title)
     self.header = Instance.new("Frame")
     self.header.Size = UDim2.new(1, 0, 0, 50)
     self.header.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    self.header.BorderSizePixel = 0
     self.header.Parent = self.mainPanel
 
-    local headerTitle = Instance.new("TextLabel")
-    headerTitle.Size = UDim2.new(0, 200, 0, 30)
-    headerTitle.Position = UDim2.new(0, 20, 0, 10)
-    headerTitle.BackgroundTransparency = 1
-    headerTitle.Text = title or "Cryo Hub"
-    headerTitle.Font = Enum.Font.GothamBlack
-    headerTitle.TextSize = 20
-    headerTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    headerTitle.TextXAlignment = Enum.TextXAlignment.Left
-    headerTitle.Parent = self.header
+    local hCorner = Instance.new("UICorner", self.header)
+    hCorner.CornerRadius = UDim.new(0, 12)
 
-    -- Кнопка закрытия
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(0, 200, 1, 0)
+    titleLabel.Position = UDim2.new(0, 20, 0, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title or "Cryo Hub"
+    titleLabel.Font = Enum.Font.GothamBlack
+    titleLabel.TextSize = 20
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = self.header
+
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0, 30, 0, 30)
     closeBtn.Position = UDim2.new(1, -40, 0, 10)
     closeBtn.BackgroundTransparency = 1
     closeBtn.Text = "×"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-    closeBtn.TextSize = 25
+    closeBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    closeBtn.TextSize = 24
     closeBtn.Parent = self.header
     closeBtn.MouseButton1Click:Connect(function() self:Destroy() end)
 end
 
-function CryoLib:CreateContentArea()
+function CryoLib:Internal_CreateTabContainer()
+    self.tabContainer = Instance.new("Frame")
+    self.tabContainer.Size = UDim2.new(0, 100, 1, -50)
+    self.tabContainer.Position = UDim2.new(0, 0, 0, 50)
+    self.tabContainer.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+    self.tabContainer.BorderSizePixel = 0
+    self.tabContainer.Parent = self.mainPanel
+
+    local layout = Instance.new("UIListLayout", self.tabContainer)
+    layout.Padding = UDim.new(0, 5)
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+end
+
+function CryoLib:Internal_CreateContentArea()
     self.scrollFrame = Instance.new("ScrollingFrame")
-    self.scrollFrame.Size = UDim2.new(1, -120, 1, -70)
-    self.scrollFrame.Position = UDim2.new(0, 110, 0, 60)
+    self.scrollFrame.Size = UDim2.new(1, -110, 1, -60)
+    self.scrollFrame.Position = UDim2.new(0, 105, 0, 55)
     self.scrollFrame.BackgroundTransparency = 1
+    self.scrollFrame.BorderSizePixel = 0
     self.scrollFrame.ScrollBarThickness = 2
     self.scrollFrame.Parent = self.mainPanel
 
-    local layout = Instance.new("UIListLayout")
+    local layout = Instance.new("UIListLayout", self.scrollFrame)
     layout.Padding = UDim.new(0, 8)
-    layout.Parent = self.scrollFrame
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- Оптимизированное обновление размера
     table.insert(self.connections, layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        self.scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+        self.scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
     end))
 end
 
--- ==================== СИСТЕМА ПЕРЕТАСКИВАНИЯ (FIXED) ====================
-function CryoLib:SetupDragging()
-    local dragging, dragInput, dragStart, startPos
+-- ==================== ФУНКЦИИ ВЗАИМОДЕЙСТВИЯ ====================
 
-    local function update(input)
-        local delta = input.Position - dragStart
-        self.mainPanel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-
-    table.insert(self.connections, self.header.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = self.mainPanel.Position
-            
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end))
-
-    table.insert(self.connections, UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            update(input)
-        end
-    end))
-end
-
--- ==================== УПРАВЛЕНИЕ ЖИЗНЕННЫМ ЦИКЛОМ ====================
 function CryoLib:Toggle()
     if self._destroyed then return end
     self.isOpen = not self.isOpen
@@ -165,66 +152,161 @@ function CryoLib:Toggle()
         self.mainPanel.Visible = true
         SafeTween(self.mainPanel, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
             Size = self.originalSize,
-            ImageTransparency = 0
+            Position = UDim2.new(0.5, -210, 0.5, -260)
         })
     else
-        local tween = SafeTween(self.mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-            Size = UDim2.new(0, 0, 0, 0)
+        local t = SafeTween(self.mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0)
         })
-        if tween then
-            tween.Completed:Connect(function() 
-                if not self.isOpen then self.mainPanel.Visible = false end 
-            end)
-        end
+        if t then t.Completed:Connect(function() if not self.isOpen then self.mainPanel.Visible = false end end) end
     end
 end
 
-function CryoLib:SetupHotkey()
-    table.insert(self.connections, UserInputService.InputBegan:Connect(function(input, gpe)
-        if not gpe and input.KeyCode == Enum.KeyCode.K then
-            self:Toggle()
+function CryoLib:AddTab(name)
+    local tabBtn = Instance.new("TextButton")
+    tabBtn.Size = UDim2.new(0, 90, 0, 35)
+    tabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    tabBtn.Text = name
+    tabBtn.Font = Enum.Font.GothamBold
+    tabBtn.TextSize = 12
+    tabBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    tabBtn.Parent = self.tabContainer
+    Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 6)
+
+    local tabData = { btn = tabBtn, elements = {} }
+    table.insert(self.tabs, tabData)
+
+    tabBtn.MouseButton1Click:Connect(function() self:ActivateTab(tabData) end)
+
+    if #self.tabs == 1 then task.spawn(function() self:ActivateTab(tabData) end) end
+
+    local tabInterface = {}
+    function tabInterface:AddSection(sName)
+        local sectionLabel = Instance.new("TextLabel")
+        sectionLabel.Size = UDim2.new(1, -10, 0, 30)
+        sectionLabel.BackgroundTransparency = 1
+        sectionLabel.Text = "— " .. sName:upper()
+        sectionLabel.Font = Enum.Font.GothamBlack
+        sectionLabel.TextSize = 12
+        sectionLabel.TextColor3 = Color3.fromRGB(100, 150, 255)
+        sectionLabel.TextXAlignment = Enum.TextXAlignment.Left
+        sectionLabel.Visible = false
+        sectionLabel.Parent = self.Library.scrollFrame
+        table.insert(tabData.elements, sectionLabel)
+
+        local sectInterface = { Library = self.Library, tabData = tabData }
+        
+        function sectInterface:AddButton(text, cb)
+            local b = Instance.new("TextButton")
+            b.Size = UDim2.new(1, -10, 0, 35)
+            b.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+            b.Text = text
+            b.Font = Enum.Font.Gotham
+            b.TextColor3 = Color3.fromRGB(255, 255, 255)
+            b.Visible = false
+            b.Parent = self.Library.scrollFrame
+            Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+            b.MouseButton1Click:Connect(function() SafeCall(cb) end)
+            table.insert(self.tabData.elements, b)
+        end
+        
+        function sectInterface:AddToggle(text, cb)
+            local state = false
+            local b = Instance.new("TextButton")
+            b.Size = UDim2.new(1, -10, 0, 35)
+            b.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+            b.Text = text .. ": OFF"
+            b.Font = Enum.Font.Gotham
+            b.TextColor3 = Color3.fromRGB(200, 80, 80)
+            b.Visible = false
+            b.Parent = self.Library.scrollFrame
+            Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+            
+            b.MouseButton1Click:Connect(function()
+                state = not state
+                b.Text = text .. (state and ": ON" or ": OFF")
+                b.TextColor3 = state and Color3.fromRGB(80, 200, 80) or Color3.fromRGB(200, 80, 80)
+                SafeCall(cb, state)
+            end)
+            table.insert(self.tabData.elements, b)
+        end
+
+        return sectInterface
+    end
+    tabInterface.Library = self
+    return tabInterface
+end
+
+function CryoLib:ActivateTab(tabData)
+    for _, t in ipairs(self.tabs) do
+        t.btn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+        t.btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+        for _, el in ipairs(t.elements) do el.Visible = false end
+    end
+    tabData.btn.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+    tabData.btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    for _, el in ipairs(tabData.elements) do el.Visible = true end
+end
+
+-- ==================== СИСТЕМНЫЕ ФУНКЦИИ ====================
+
+function CryoLib:Internal_SetupDragging()
+    local dragging, dragInput, dragStart, startPos
+    table.insert(self.connections, self.header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true; dragStart = input.Position; startPos = self.mainPanel.Position
+            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+        end
+    end))
+    table.insert(self.connections, UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            self.mainPanel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end))
 end
 
-function CryoLib:Destroy()
-    if self._destroyed then return end
-    self._destroyed = true
-    
-    -- Отключаем все события (ВАЖНО!)
-    for _, connection in ipairs(self.connections) do
-        if connection then connection:Disconnect() end
-    end
-    
-    if self.gui then self.gui:Destroy() end
+function CryoLib:Internal_CreateFloatingButton()
+    local fb = Instance.new("ImageButton")
+    fb.Size = UDim2.new(0, 50, 0, 50)
+    fb.Position = UDim2.new(0, 20, 0.5, -25)
+    fb.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    fb.Image = "rbxassetid://9751678226" -- Иконка
+    fb.ZIndex = 100
+    fb.Parent = self.gui
+    Instance.new("UICorner", fb).CornerRadius = UDim.new(1, 0)
+    local s = Instance.new("UIStroke", fb)
+    s.Color = Color3.fromRGB(100, 150, 255)
+    s.Thickness = 2
+
+    fb.MouseButton1Click:Connect(function() self:Toggle() end)
+    self.floatingBtn = fb
 end
 
--- Пример метода уведомления (Дописано)
-function CryoLib:Notify(title, text, duration)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 250, 0, 60)
-    frame.Position = UDim2.new(1, 10, 1, -70)
-    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    frame.Parent = self.gui
+function CryoLib:Notify(title, msg, dur)
+    local n = Instance.new("Frame")
+    n.Size = UDim2.new(0, 250, 0, 60)
+    n.Position = UDim2.new(1, 10, 1, -70)
+    n.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    n.Parent = self.gui
+    Instance.new("UICorner", n)
+    local l = Instance.new("TextLabel", n)
+    l.Size = UDim2.new(1, -20, 1, 0); l.Position = UDim2.new(0, 10, 0, 0)
+    l.BackgroundTransparency = 1; l.TextColor3 = Color3.fromRGB(255, 255, 255)
+    l.Text = title .. "\n" .. msg; l.Font = Enum.Font.Gotham; l.TextSize = 12
     
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
-    local s = Instance.new("UIStroke", frame)
-    s.Color = Color3.fromRGB(100, 150, 255)
-    
-    local l = Instance.new("TextLabel", frame)
-    l.Size = UDim2.new(1, -20, 1, 0)
-    l.Position = UDim2.new(0, 10, 0, 0)
-    l.Text = title .. "\n" .. text
-    l.TextColor3 = Color3.fromRGB(255, 255, 255)
-    l.BackgroundTransparency = 1
-    l.TextWrapped = true
-
-    SafeTween(frame, TweenInfo.new(0.5), {Position = UDim2.new(1, -260, 1, -70)})
-    
-    task.delay(duration or 3, function()
-        local t = SafeTween(frame, TweenInfo.new(0.5), {Position = UDim2.new(1, 10, 1, -70)})
-        if t then t.Completed:Connect(function() frame:Destroy() end) end
+    SafeTween(n, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(1, -260, 1, -70)})
+    task.delay(dur or 3, function()
+        local t = SafeTween(n, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 10, 1, -70)})
+        if t then t.Completed:Connect(function() n:Destroy() end) end
     end)
+end
+
+function CryoLib:Destroy()
+    self._destroyed = true
+    for _, c in ipairs(self.connections) do c:Disconnect() end
+    self.gui:Destroy()
 end
 
 return CryoLib
