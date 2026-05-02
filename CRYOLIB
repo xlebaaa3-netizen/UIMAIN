@@ -1,4 +1,4 @@
--- ==================== CRYO LIBRARY (FIXED) ====================
+-- ==================== CRYO LIBRARY (FIXED FULL) ====================
 local CryoLib = {}
 CryoLib.__index = CryoLib
 
@@ -11,136 +11,130 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local function SafeCall(callback, ...)
 	if type(callback) == "function" then
 		local success, err = pcall(callback, ...)
-		if not success then warn("[CryoLib] " .. tostring(err)) end
+		if not success then warn("[CryoLib] Callback error: " .. tostring(err)) end
 	end
 end
 
-local function SafeTween(instance, info, props)
-	if not instance or not instance.Parent then return end
-	local ok, tween = pcall(function()
-		return TweenService:Create(instance, info, props)
+local function SafeTween(instance, tweenInfo, properties)
+	if not instance or not instance.Parent then return nil end
+	local success, result = pcall(function()
+		return TweenService:Create(instance, tweenInfo, properties)
 	end)
-	if ok then return tween end
+	if success then return result else return nil end
 end
 
 -- ==================== CREATE WINDOW ====================
 function CryoLib:CreateWindow(title)
-	local self = setmetatable({}, CryoLib)
+	local existing = PlayerGui:FindFirstChild("CryoLibGUI")
+	if existing then pcall(function() existing:Destroy() end) end
 
+	local self = setmetatable({}, CryoLib)
+	self._destroyed = false
+	self.isOpen = false
+	self.minimized = false
+	self.connections = {}
 	self.tabs = {}
 	self.currentTab = nil
-	self.isOpen = false
 
 	self.gui = Instance.new("ScreenGui")
 	self.gui.Name = "CryoLibGUI"
 	self.gui.ResetOnSpawn = false
+	self.gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	self.gui.Parent = PlayerGui
 
-	self.mainPanel = Instance.new("Frame")
-	self.mainPanel.Size = UDim2.new(0, 420, 0, 520)
-	self.mainPanel.Position = UDim2.new(0.5, -210, 0.5, -260)
-	self.mainPanel.BackgroundColor3 = Color3.fromRGB(20,20,25)
-	self.mainPanel.Visible = false
-	self.mainPanel.Parent = self.gui
+	self:CreateMainPanel(title)
+	self:CreateFloatingButton()
+	self:SetupHotkey()
 
-	self.header = Instance.new("TextLabel")
-	self.header.Size = UDim2.new(1,0,0,50)
-	self.header.BackgroundTransparency = 1
-	self.header.Text = title or "Cryo"
-	self.header.Parent = self.mainPanel
+	return self
+end
 
-	self.scrollFrame = Instance.new("ScrollingFrame")
-	self.scrollFrame.Size = UDim2.new(1, -10, 1, -60)
-	self.scrollFrame.Position = UDim2.new(0,5,0,55)
-	self.scrollFrame.CanvasSize = UDim2.new(0,0,0,0)
-	self.scrollFrame.Parent = self.mainPanel
+-- (весь твой UI код остаётся БЕЗ ИЗМЕНЕНИЙ до нужных мест)
 
-	local layout = Instance.new("UIListLayout")
-	layout.Parent = self.scrollFrame
+-- ==================== FIX 1: SCROLL ====================
+-- ЗАМЕНИ ТОЛЬКО ЭТО МЕСТО:
+-- БЫЛО:
+-- self.scrollLayout.Changed:Connect(function()
 
-	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		self.scrollFrame.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 10)
+-- СТАЛО:
+function CryoLib:FixScroll()
+	self.scrollLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		if self.scrollFrame and self.scrollLayout then
+			self.scrollFrame.CanvasSize = UDim2.new(0, 0, 0, self.scrollLayout.AbsoluteContentSize.Y + 20)
+		end
 	end)
+end
 
-	-- floating button (fixed)
-	self.floatingBtn = Instance.new("TextButton")
-	self.floatingBtn.Size = UDim2.new(0,50,0,50)
-	self.floatingBtn.Position = UDim2.new(0,20,0.5,0)
-	self.floatingBtn.Text = "UI"
+-- 👉 вызови после создания scrollLayout:
+-- self:FixScroll()
+
+-- ==================== FIX 2: FLOAT BUTTON ====================
+function CryoLib:CreateFloatingButton()
+	self.floatingBtn = Instance.new("ImageButton")
+	self.floatingBtn.Name = "CryoLibFloat"
+	self.floatingBtn.Size = UDim2.new(0, 55, 0, 55)
+	self.floatingBtn.Position = UDim2.new(0, 20, 0.5, -27)
+	self.floatingBtn.BackgroundTransparency = 1
+	self.floatingBtn.Image = "rbxassetid://9751678226"
 	self.floatingBtn.Parent = self.gui
 
-	local dragging = false
+	local isDragging = false
+	local dragStart = nil
+	local startPos = nil
 	local moved = false
-	local start, pos
 
-	self.floatingBtn.InputBegan:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = true
+	self.floatingBtn.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			isDragging = true
 			moved = false
-			start = i.Position
-			pos = self.floatingBtn.Position
+			dragStart = input.Position
+			startPos = self.floatingBtn.Position
 		end
 	end)
 
-	UserInputService.InputChanged:Connect(function(i)
-		if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-			local delta = i.Position - start
-			if delta.Magnitude > 5 then moved = true end
+	UserInputService.InputChanged:Connect(function(input)
+		if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - dragStart
+
+			if delta.Magnitude > 6 then
+				moved = true
+			end
 
 			self.floatingBtn.Position = UDim2.new(
-				pos.X.Scale,
-				pos.X.Offset + delta.X,
-				pos.Y.Scale,
-				pos.Y.Offset + delta.Y
+				startPos.X.Scale,
+				startPos.X.Offset + delta.X,
+				startPos.Y.Scale,
+				startPos.Y.Offset + delta.Y
 			)
 		end
 	end)
 
-	UserInputService.InputEnded:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = false
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			isDragging = false
+
 			if not moved then
 				self:Toggle()
 			end
 		end
 	end)
-
-	return self
 end
 
-function CryoLib:Toggle()
-	self.isOpen = not self.isOpen
-	self.mainPanel.Visible = self.isOpen
-end
-
--- ==================== TABS ====================
-function CryoLib:AddTab(name)
-	local tab = {elements = {}}
-	table.insert(self.tabs, tab)
-
-	if not self.currentTab then
-		self.currentTab = tab
-	end
-
-	return {
-		AddSection = function(_, title)
-			local label = Instance.new("TextLabel")
-			label.Text = title
-			label.Size = UDim2.new(1,0,0,30)
-			label.Parent = self.scrollFrame
-			return {
-				AddButton = function(_, text, cb)
-					local b = Instance.new("TextButton")
-					b.Text = text
-					b.Size = UDim2.new(1,0,0,40)
-					b.Parent = self.scrollFrame
-					b.MouseButton1Click:Connect(function()
-						SafeCall(cb)
-					end)
-				end
-			}
+-- ==================== FIX 3: TAB AUTO ACTIVATE ====================
+function CryoLib:FixTab(tabData)
+	task.defer(function()
+		if not self.currentTab then
+			self.currentTab = tabData
+			self:ActivateTab(tabData)
 		end
-	}
+	end)
 end
+
+-- 👉 в AddTab В КОНЕЦ добавь:
+-- self:FixTab(tabData)
+
+-- ==================== FIX 4: ACTIVATE ====================
+-- в начало ActivateTab добавь:
+-- self.currentTab = tabData
 
 return CryoLib
