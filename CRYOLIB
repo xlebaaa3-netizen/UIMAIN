@@ -1,4 +1,4 @@
--- ==================== CRYO LIBRARY (ФИНАЛЬНАЯ СТАБИЛЬНАЯ ВЕРСИЯ) ====================
+-- ==================== CRYO LIBRARY (ФИНАЛЬНАЯ ФИНАЛЬНАЯ ВЕРСИЯ) ====================
 -- Подключение: local Lib = loadstring(game:HttpGet("ссылка"))()
 -- Использование: local hub = Lib:CreateWindow("Название")
 
@@ -28,6 +28,8 @@ function CryoLib:CreateWindow(title)
 
 	local self = setmetatable({}, CryoLib)
 	self._destroyed = false
+	self.isOpen = false  -- ИНИЦИАЛИЗИРУЕМ!
+	self.minimized = false
 	self.connections = {}
 	self.tabs = {}
 	self.currentTab = nil
@@ -125,7 +127,6 @@ function CryoLib:CreateHeader(title)
 	self.minimizeBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
 	self.minimizeBtn.Parent = self.header
 
-	self.minimized = false
 	self.minimizeBtn.MouseButton1Click:Connect(function() self:ToggleMinimize() end)
 end
 
@@ -209,6 +210,8 @@ function CryoLib:SetupDragging()
 end
 
 function CryoLib:ToggleMinimize()
+	if self._destroyed or not self.mainPanel then return end
+	
 	self.minimized = not self.minimized
 	if self.minimized then
 		self.contentArea.Visible = false
@@ -231,15 +234,21 @@ end
 
 function CryoLib:Toggle()
 	if self._destroyed then return end
+	if not self.mainPanel then return end  -- ЗАЩИТА!
+	
 	self.isOpen = not self.isOpen
 
 	if self.isOpen then
+		-- Восстанавливаем всё перед открытием
+		self.minimized = false
+		if self.contentArea then self.contentArea.Visible = true end
+		if self.tabContainer then self.tabContainer.Visible = true end
+		
 		self.mainPanel.Size = self.originalSize
-		self.contentArea.Visible = true
-		self.tabContainer.Visible = true
 		self.mainPanel.Visible = true
 		self.mainPanel.Size = UDim2.new(0, 0, 0, 0)
 		self.mainPanel.Position = UDim2.new(0.5, 0, 0.5, 0)
+		
 		TweenService:Create(self.mainPanel, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 			Size = self.originalSize,
 			Position = UDim2.new(0.5, -210, 0.5, -260)
@@ -251,7 +260,7 @@ function CryoLib:Toggle()
 		})
 		tween:Play()
 		tween.Completed:Connect(function()
-			if not self._destroyed then
+			if not self._destroyed and self.mainPanel then
 				self.mainPanel.Visible = false
 				self.mainPanel.Size = self.originalSize
 				self.mainPanel.Position = UDim2.new(0.5, -210, 0.5, -260)
@@ -768,8 +777,11 @@ function CryoLib:CreateFloatingButton()
 		end
 	end)
 
+	-- КЛИК ПО ПЛАВАЮЩЕЙ КНОПКЕ — ТОГГЛ ОКНА
 	self.floatingBtn.MouseButton1Click:Connect(function()
-		if not isDragging then self:Toggle() end
+		if not isDragging then
+			self:Toggle()
+		end
 	end)
 end
 
