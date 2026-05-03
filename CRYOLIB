@@ -59,26 +59,34 @@ function CryoLib:CreateWindow(hubName)
     mainStroke.Color = Color3.fromRGB(40, 40, 50)
     mainStroke.Thickness = 1
 
-    -- Сохраняем позицию для восстановления
+    -- Сохраняем позицию и размер
     local savedPosition = mainPanel.Position
     local savedSize = mainPanel.Size
 
+    -- Точка анимации — левый верхний угол заголовка (где логотип)
+    local function getAnchorPoint()
+        local headerTopLeft = mainPanel.AbsolutePosition + Vector2.new(16, 12)
+        return UDim2.new(0, headerTopLeft.X, 0, headerTopLeft.Y)
+    end
+
     local function animateShow()
         mainPanel.Visible = true
+        local anchor = getAnchorPoint()
         mainPanel.Size = UDim2.new(0, 0, 0, 0)
-        mainPanel.Position = UDim2.new(0.5, 0, 0.5, 0)
-        TweenService:Create(mainPanel, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        mainPanel.Position = anchor
+        TweenService:Create(mainPanel, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
             Size = savedSize,
             Position = savedPosition
         }):Play()
     end
 
     local function animateHide()
-        TweenService:Create(mainPanel, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        local anchor = getAnchorPoint()
+        TweenService:Create(mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
             Size = UDim2.new(0, 0, 0, 0),
-            Position = UDim2.new(0.5, 0, 0.5, 0)
+            Position = anchor
         }):Play()
-        task.delay(0.25, function()
+        task.delay(0.3, function()
             mainPanel.Visible = false
             mainPanel.Size = savedSize
             mainPanel.Position = savedPosition
@@ -87,21 +95,32 @@ function CryoLib:CreateWindow(hubName)
 
     local function animateMinimize()
         if libData.minimized then
-            -- Разворачиваем
-            TweenService:Create(mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                Size = savedSize
+            -- Разворачиваем из левого угла
+            local anchor = getAnchorPoint()
+            mainPanel.Size = UDim2.new(0, 440, 0, 54)
+            mainPanel.Position = anchor
+            mainPanel.Visible = true
+            TweenService:Create(mainPanel, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                Size = savedSize,
+                Position = savedPosition
             }):Play()
             tabContainer.Visible = true
             contentArea.Visible = true
             libData.minimized = false
         else
-            -- Сворачиваем в заголовок
-            TweenService:Create(mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                Size = UDim2.new(0, 440, 0, 54)
+            -- Сворачиваем в левый угол
+            local anchor = getAnchorPoint()
+            TweenService:Create(mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                Size = UDim2.new(0, 0, 0, 0),
+                Position = anchor
             }):Play()
-            tabContainer.Visible = false
-            contentArea.Visible = false
-            libData.minimized = true
+            task.delay(0.3, function()
+                tabContainer.Visible = false
+                contentArea.Visible = false
+                mainPanel.Size = UDim2.new(0, 440, 0, 54)
+                mainPanel.Position = savedPosition
+                libData.minimized = true
+            end)
         end
     end
 
@@ -126,7 +145,6 @@ function CryoLib:CreateWindow(hubName)
     local headerCorner = Instance.new("UICorner", header)
     headerCorner.CornerRadius = UDim.new(0, 16)
     
-    -- Fix bottom corners of header
     local headerFix = Instance.new("Frame", header)
     headerFix.Size = UDim2.new(1, 0, 0.5, 0)
     headerFix.Position = UDim2.new(0, 0, 0.5, 0)
@@ -154,65 +172,55 @@ function CryoLib:CreateWindow(hubName)
 
     -- [[ CLOSE BUTTON ]]
     local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 32, 0, 32)
-    closeBtn.Position = UDim2.new(1, -42, 0, 11)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    closeBtn.Size = UDim2.new(0, 30, 0, 30)
+    closeBtn.Position = UDim2.new(1, -40, 0, 12)
+    closeBtn.BackgroundTransparency = 1
     closeBtn.Text = "×"
     closeBtn.Font = Enum.Font.GothamBlack
-    closeBtn.TextSize = 20
-    closeBtn.TextColor3 = Color3.fromRGB(200, 80, 80)
+    closeBtn.TextSize = 24
+    closeBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
     closeBtn.Parent = header
     closeBtn.AutoButtonColor = false
-    
-    local closeCorner = Instance.new("UICorner", closeBtn)
-    closeCorner.CornerRadius = UDim.new(0, 8)
     
     closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
     
     closeBtn.MouseEnter:Connect(function()
-        TweenService:Create(closeBtn, TweenInfo.new(0.2), {
-            BackgroundColor3 = Color3.fromRGB(220, 60, 60),
-            TextColor3 = Color3.fromRGB(255, 255, 255)
+        TweenService:Create(closeBtn, TweenInfo.new(0.15), {
+            TextColor3 = Color3.fromRGB(255, 80, 80)
         }):Play()
     end)
     closeBtn.MouseLeave:Connect(function()
-        TweenService:Create(closeBtn, TweenInfo.new(0.2), {
-            BackgroundColor3 = Color3.fromRGB(35, 35, 45),
-            TextColor3 = Color3.fromRGB(200, 80, 80)
+        TweenService:Create(closeBtn, TweenInfo.new(0.15), {
+            TextColor3 = Color3.fromRGB(150, 150, 150)
         }):Play()
     end)
 
     -- [[ MINIMIZE BUTTON ]]
     local minimizeBtn = Instance.new("TextButton")
-    minimizeBtn.Size = UDim2.new(0, 32, 0, 32)
-    minimizeBtn.Position = UDim2.new(1, -78, 0, 11)
-    minimizeBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    minimizeBtn.Size = UDim2.new(0, 30, 0, 30)
+    minimizeBtn.Position = UDim2.new(1, -72, 0, 12)
+    minimizeBtn.BackgroundTransparency = 1
     minimizeBtn.Text = "−"
     minimizeBtn.Font = Enum.Font.GothamBlack
-    minimizeBtn.TextSize = 20
-    minimizeBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    minimizeBtn.TextSize = 24
+    minimizeBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
     minimizeBtn.Parent = header
     minimizeBtn.AutoButtonColor = false
-    
-    local minCorner = Instance.new("UICorner", minimizeBtn)
-    minCorner.CornerRadius = UDim.new(0, 8)
     
     minimizeBtn.MouseButton1Click:Connect(animateMinimize)
     
     minimizeBtn.MouseEnter:Connect(function()
-        TweenService:Create(minimizeBtn, TweenInfo.new(0.2), {
-            BackgroundColor3 = libData.accent,
-            TextColor3 = Color3.fromRGB(255, 255, 255)
+        TweenService:Create(minimizeBtn, TweenInfo.new(0.15), {
+            TextColor3 = libData.accent
         }):Play()
     end)
     minimizeBtn.MouseLeave:Connect(function()
-        TweenService:Create(minimizeBtn, TweenInfo.new(0.2), {
-            BackgroundColor3 = Color3.fromRGB(35, 35, 45),
-            TextColor3 = Color3.fromRGB(180, 180, 180)
+        TweenService:Create(minimizeBtn, TweenInfo.new(0.15), {
+            TextColor3 = Color3.fromRGB(150, 150, 150)
         }):Play()
     end)
 
-    -- Драг панели (только когда не свёрнуто)
+    -- Драг панели
     local dDrag, dS, dI
     header.InputBegan:Connect(function(i) 
         if i.UserInputType == Enum.UserInputType.MouseButton1 and not libData.minimized then 
@@ -244,7 +252,6 @@ function CryoLib:CreateWindow(hubName)
     local tabCorner = Instance.new("UICorner", tabContainer)
     tabCorner.CornerRadius = UDim.new(0, 16)
     
-    -- Fix right side of tab container
     local tabFix = Instance.new("Frame", tabContainer)
     tabFix.Size = UDim2.new(0.5, 0, 1, 0)
     tabFix.Position = UDim2.new(0.5, 0, 0, 0)
@@ -256,10 +263,10 @@ function CryoLib:CreateWindow(hubName)
     contentArea.Position = UDim2.new(0, 110, 0, 54)
     contentArea.BackgroundTransparency = 1
 
-    -- [[ TAB INDICATOR ]]
+    -- [[ TAB INDICATOR — сдвинута вправо и синяя ]]
     local tabIndicator = Instance.new("Frame", tabContainer)
     tabIndicator.Size = UDim2.new(0, 3, 0, 0)
-    tabIndicator.Position = UDim2.new(0, 0, 0, 0)
+    tabIndicator.Position = UDim2.new(0, 8, 0, 0)
     tabIndicator.BackgroundColor3 = libData.accent
     tabIndicator.BorderSizePixel = 0
     tabIndicator.Visible = false
@@ -297,7 +304,6 @@ function CryoLib:CreateWindow(hubName)
         btn.TextSize = 13
         btn.AutoButtonColor = false
         
-        -- Tab hover effect
         local tabBg = Instance.new("Frame", btn)
         tabBg.Size = UDim2.new(1, 0, 1, 0)
         tabBg.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
@@ -317,10 +323,9 @@ function CryoLib:CreateWindow(hubName)
             btn.TextColor3 = Color3.fromRGB(255, 255, 255)
             TweenService:Create(tabBg, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
             
-            -- Move indicator
             tabIndicator.Visible = true
             TweenService:Create(tabIndicator, TweenInfo.new(0.25, Enum.EasingStyle.Quart), {
-                Position = UDim2.new(0, 0, 0, btn.AbsolutePosition.Y - tabContainer.AbsolutePosition.Y),
+                Position = UDim2.new(0, 8, 0, btn.AbsolutePosition.Y - tabContainer.AbsolutePosition.Y),
                 Size = UDim2.new(0, 3, 0, 38)
             }):Play()
         end)
@@ -342,7 +347,7 @@ function CryoLib:CreateWindow(hubName)
             tabBg.BackgroundTransparency = 0
             tabIndicator.Visible = true
             tabIndicator.Size = UDim2.new(0, 3, 0, 38)
-            tabIndicator.Position = UDim2.new(0, 0, 0, btn.AbsolutePosition.Y - tabContainer.AbsolutePosition.Y)
+            tabIndicator.Position = UDim2.new(0, 8, 0, btn.AbsolutePosition.Y - tabContainer.AbsolutePosition.Y)
         end
 
         function tabObj:CreateToggle(txt, callback)
@@ -487,23 +492,13 @@ function CryoLib:CreateWindow(hubName)
         
         function tabObj:CreateLabel(txt)
             local l = Instance.new("TextLabel", scroll)
-            l.Size = UDim2.new(1, 0, 0, 30)
+            l.Size = UDim2.new(1, 0, 0, 28)
             l.Text = txt
             l.TextColor3 = libData.accent
             l.Font = Enum.Font.GothamBlack
             l.BackgroundTransparency = 1
             l.TextSize = 13
             l.TextXAlignment = Enum.TextXAlignment.Left
-            
-            -- Subtle underline effect
-            local line = Instance.new("Frame", l)
-            line.Size = UDim2.new(0.3, 0, 0, 2)
-            line.Position = UDim2.new(0, 0, 1, -4)
-            line.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-            line.BorderSizePixel = 0
-            
-            local lineCorner = Instance.new("UICorner", line)
-            lineCorner.CornerRadius = UDim.new(1, 0)
         end
         
         return tabObj
