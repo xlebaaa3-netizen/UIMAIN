@@ -1,5 +1,5 @@
 local CryoLib = {}
--- скажи
+
 function CryoLib:CreateWindow(hubName)
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -10,7 +10,8 @@ function CryoLib:CreateWindow(hubName)
         tabs = {},
         accent = Color3.fromRGB(120, 170, 255),
         visible = true,
-        minimized = false
+        minimized = false,
+        closing = false
     }
 
     -- [[ HELPER: Create Glow Effect with thin border ]]
@@ -179,88 +180,63 @@ function CryoLib:CreateWindow(hubName)
         end
     end
 
-    -- [[ SHATTER CLOSE EFFECT — 3 pieces ]]
+    -- [[ CLOSE EFFECT — minimize to header then destroy ]]
     local function animateClose()
-        -- Hide original content
-        header.Visible = false
+        if libData.closing then return end
+        libData.closing = true
+        
+        -- Step 1: Minimize to header (54px height)
+        TweenService:Create(mainPanel, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 440, 0, 54)
+        }):Play()
         tabContainer.Visible = false
         contentArea.Visible = false
+        libData.minimized = true
         
-        local w = mainPanel.AbsoluteSize.X
-        local h = mainPanel.AbsoluteSize.Y
-        
-        -- Create 3 vertical slices
-        local pieces = {}
-        local sliceW = w / 3
-        
-        for i = 0, 2 do
-            local piece = Instance.new("Frame")
-            piece.Size = UDim2.new(0, sliceW + 2, 1, 0)
-            piece.Position = UDim2.new(0, i * sliceW, 0, 0)
-            piece.BackgroundColor3 = mainPanel.BackgroundColor3
-            piece.BorderSizePixel = 0
-            piece.ZIndex = 50
-            piece.Parent = mainPanel
-            
-            local pCorner = Instance.new("UICorner", piece)
-            pCorner.CornerRadius = UDim.new(0, 4)
-            
-            local stroke = Instance.new("UIStroke", piece)
-            stroke.Color = libData.accent
-            stroke.Thickness = 1
-            stroke.Transparency = 0.3
-            
-            table.insert(pieces, {
-                frame = piece,
-                dirX = (i - 1) * 300 + (math.random() - 0.5) * 100,
-                dirY = (math.random() - 0.5) * 400,
-                rot = (i - 1) * 45 + math.random(-30, 30)
-            })
-        end
-        
-        -- Animate shatter
-        for _, p in ipairs(pieces) do
-            TweenService:Create(p.frame, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                Position = UDim2.new(0, p.frame.Position.X.Offset + p.dirX, 0, p.frame.Position.Y.Offset + p.dirY),
-                Rotation = p.rot,
-                BackgroundTransparency = 1,
-                Size = UDim2.new(0, 0, 0, 0)
+        task.delay(0.5, function()
+            -- Step 2: Shrink header to nothing
+            local anchor = getAnchorPoint()
+            TweenService:Create(mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                Size = UDim2.new(0, 0, 0, 0),
+                Position = anchor
             }):Play()
-        end
-        
-        -- Darken screen
-        task.delay(0.3, function()
-            darkOverlay.Visible = true
-            TweenService:Create(darkOverlay, TweenInfo.new(0.5), {BackgroundTransparency = 0}):Play()
             
-            -- Play sound
-            pcall(function()
-                local sound = Instance.new("Sound")
-                sound.SoundId = "rbxassetid://71174427112120"
-                sound.Volume = 1
-                sound.Parent = gui
-                sound:Play()
-            end)
-            
-            -- Show thanks
-            task.delay(0.6, function()
-                TweenService:Create(thanksLabel, TweenInfo.new(0.8, Enum.EasingStyle.Quart), {
-                    TextTransparency = 0
-                }):Play()
+            task.delay(0.3, function()
+                mainPanel.Visible = false
                 
-                -- Float button to center top
-                TweenService:Create(floatBtn, TweenInfo.new(1, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                    Position = UDim2.new(0.5, -24, 0.25, 0)
-                }):Play()
+                -- Step 3: Darken screen
+                darkOverlay.Visible = true
+                TweenService:Create(darkOverlay, TweenInfo.new(0.5), {BackgroundTransparency = 0}):Play()
                 
-                -- Fade out everything
-                task.delay(2.5, function()
-                    TweenService:Create(thanksLabel, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
-                    TweenService:Create(floatBtn, TweenInfo.new(0.5), {ImageTransparency = 1}):Play()
-                    TweenService:Create(darkOverlay, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+                -- Play sound
+                pcall(function()
+                    local sound = Instance.new("Sound")
+                    sound.SoundId = "rbxassetid://71174427112120"
+                    sound.Volume = 1
+                    sound.Parent = gui
+                    sound:Play()
+                end)
+                
+                -- Step 4: Show thanks and move float button
+                task.delay(0.6, function()
+                    TweenService:Create(thanksLabel, TweenInfo.new(0.8, Enum.EasingStyle.Quart), {
+                        TextTransparency = 0
+                    }):Play()
                     
-                    task.delay(0.6, function()
-                        gui:Destroy()
+                    -- Float button to center top
+                    TweenService:Create(floatBtn, TweenInfo.new(1, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                        Position = UDim2.new(0.5, -24, 0.25, 0)
+                    }):Play()
+                    
+                    -- Fade out everything
+                    task.delay(2.5, function()
+                        TweenService:Create(thanksLabel, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
+                        TweenService:Create(floatBtn, TweenInfo.new(0.5), {ImageTransparency = 1}):Play()
+                        TweenService:Create(darkOverlay, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+                        
+                        task.delay(0.6, function()
+                            gui:Destroy()
+                        end)
                     end)
                 end)
             end)
@@ -372,7 +348,7 @@ function CryoLib:CreateWindow(hubName)
     -- Драг панели
     local dDrag, dS, dI
     header.InputBegan:Connect(function(i) 
-        if i.UserInputType == Enum.UserInputType.MouseButton1 and not libData.minimized then 
+        if i.UserInputType == Enum.UserInputType.MouseButton1 and not libData.minimized and not libData.closing then 
             dDrag = true 
             dI = i.Position 
             dS = mainPanel.Position 
