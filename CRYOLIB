@@ -13,36 +13,45 @@ function CryoLib:CreateWindow(hubName)
         minimized = false
     }
 
-    -- [[ HELPER: Create Soft Glow Effect ]]
-    local function createSoftGlow(parent, color)
-        -- Main subtle stroke
+    -- [[ HELPER: Create Glow Effect with thick border ]]
+    local function createGlow(parent, color, borderThickness)
+        local thickness = borderThickness or 6
+        
+        -- Main thick border
         local stroke = Instance.new("UIStroke", parent)
         stroke.Color = color
-        stroke.Thickness = 1
-        stroke.Transparency = 0.4
+        stroke.Thickness = thickness
+        stroke.Transparency = 0.15
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         
-        -- Outer glow layers (simulated with frames for soft edge)
-        local glow1 = Instance.new("Frame", parent)
-        glow1.Name = "Glow1"
-        glow1.Size = UDim2.new(1, 6, 1, 6)
-        glow1.Position = UDim2.new(0, -3, 0, -3)
-        glow1.BackgroundColor3 = color
-        glow1.BackgroundTransparency = 0.85
-        glow1.ZIndex = parent.ZIndex - 1
+        -- Inner sharp line
+        local inner = Instance.new("UIStroke", parent)
+        inner.Color = Color3.fromRGB(255, 255, 255)
+        inner.Thickness = 1
+        inner.Transparency = 0.5
+        inner.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         
-        local g1Corner = Instance.new("UICorner", glow1)
-        g1Corner.CornerRadius = parent:FindFirstChildOfClass("UICorner") and parent:FindFirstChildOfClass("UICorner").CornerRadius or UDim.new(0, 8)
-        
-        local glow2 = Instance.new("Frame", parent)
-        glow2.Name = "Glow2"
-        glow2.Size = UDim2.new(1, 12, 1, 12)
-        glow2.Position = UDim2.new(0, -6, 0, -6)
-        glow2.BackgroundColor3 = color
-        glow2.BackgroundTransparency = 0.92
-        glow2.ZIndex = parent.ZIndex - 2
-        
-        local g2Corner = Instance.new("UICorner", glow2)
-        g2Corner.CornerRadius = parent:FindFirstChildOfClass("UICorner") and parent:FindFirstChildOfClass("UICorner").CornerRadius or UDim.new(0, 8)
+        -- Outer glow layers
+        for i = 1, 4 do
+            local glow = Instance.new("Frame", parent)
+            glow.Name = "GlowLayer"..i
+            glow.Size = UDim2.new(1, thickness + (i * 4), 1, thickness + (i * 4))
+            glow.Position = UDim2.new(0, -(thickness/2) - (i * 2), 0, -(thickness/2) - (i * 2))
+            glow.BackgroundColor3 = color
+            glow.BackgroundTransparency = 0.7 + (i * 0.08)
+            glow.ZIndex = parent.ZIndex - 1
+            
+            local glowCorner = Instance.new("UICorner", glow)
+            local parentCorner = parent:FindFirstChildOfClass("UICorner")
+            if parentCorner then
+                glowCorner.CornerRadius = UDim.new(
+                    parentCorner.CornerRadius.Scale, 
+                    parentCorner.CornerRadius.Offset + (i * 2)
+                )
+            else
+                glowCorner.CornerRadius = UDim.new(0, 8 + (i * 2))
+            end
+        end
         
         return stroke
     end
@@ -54,10 +63,10 @@ function CryoLib:CreateWindow(hubName)
     gui.DisplayOrder = 999
     gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-    -- [[ ПЛАВАЮЩАЯ КНОПКА С SOFT GLOW ]]
+    -- [[ ПЛАВАЮЩАЯ КНОПКА С GLOW ]]
     local floatBtn = Instance.new("ImageButton")
-    floatBtn.Size = UDim2.new(0, 48, 0, 48)
-    floatBtn.Position = UDim2.new(0, 24, 0.5, -24)
+    floatBtn.Size = UDim2.new(0, 52, 0, 52)
+    floatBtn.Position = UDim2.new(0, 22, 0.5, -26)
     floatBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
     floatBtn.Image = "rbxassetid://12129379472"
     floatBtn.ZIndex = 100
@@ -66,8 +75,8 @@ function CryoLib:CreateWindow(hubName)
     local floatCorner = Instance.new("UICorner", floatBtn)
     floatCorner.CornerRadius = UDim.new(1, 0)
     
-    -- Soft glow for float button
-    createSoftGlow(floatBtn, libData.accent)
+    -- 6px glow for float button
+    createGlow(floatBtn, libData.accent, 6)
 
     -- Драг кнопки
     local fDrag, fS, fP
@@ -77,7 +86,7 @@ function CryoLib:CreateWindow(hubName)
     end end)
     UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then fDrag = false end end)
 
-    -- [[ ГЛАВНАЯ ПАНЕЛЬ С SOFT GLOW ]]
+    -- [[ ГЛАВНАЯ ПАНЕЛЬ С GLOW ]]
     local mainPanel = Instance.new("Frame")
     mainPanel.Size = UDim2.new(0, 440, 0, 540)
     mainPanel.Position = UDim2.new(0.5, -220, 0.5, -270)
@@ -89,8 +98,8 @@ function CryoLib:CreateWindow(hubName)
     local mainCorner = Instance.new("UICorner", mainPanel)
     mainCorner.CornerRadius = UDim.new(0, 16)
     
-    -- Soft glow for main panel
-    createSoftGlow(mainPanel, libData.accent)
+    -- 6px glow for main panel
+    createGlow(mainPanel, libData.accent, 6)
 
     -- Сохраняем позицию и размер
     local savedPosition = mainPanel.Position
@@ -562,5 +571,4 @@ function CryoLib:CreateWindow(hubName)
     return libData
 end
 
-return CryoLib 
--- вшв
+return CryoLib
