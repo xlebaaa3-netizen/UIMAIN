@@ -1,5 +1,5 @@
 local CryoLib = {}
--- дилда
+
 function CryoLib:CreateWindow(hubName)
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -63,8 +63,8 @@ function CryoLib:CreateWindow(hubName)
 
     -- [[ ПЛАВАЮЩАЯ КНОПКА С GLOW ]]
     local floatBtn = Instance.new("ImageButton")
-    floatBtn.Size = UDim2.new(0, 48, 0, 48)
-    floatBtn.Position = UDim2.new(0, 24, 0.5, -24)
+    floatBtn.Size = UDim2.new(0, 0, 0, 0)
+    floatBtn.Position = UDim2.new(0.5, 0, 0.5, 0)
     floatBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
     floatBtn.Image = "rbxassetid://12129379472"
     floatBtn.ZIndex = 100
@@ -74,6 +74,14 @@ function CryoLib:CreateWindow(hubName)
     floatCorner.CornerRadius = UDim.new(1, 0)
     
     createGlow(floatBtn, libData.accent, 2)
+
+    -- Animate float button appearance
+    task.delay(0.2, function()
+        TweenService:Create(floatBtn, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 48, 0, 48),
+            Position = UDim2.new(0, 24, 0.5, -24)
+        }):Play()
+    end)
 
     -- Драг кнопки
     local fDrag, fS, fP
@@ -85,20 +93,30 @@ function CryoLib:CreateWindow(hubName)
 
     -- [[ ГЛАВНАЯ ПАНЕЛЬ С GLOW ]]
     local mainPanel = Instance.new("Frame")
-    mainPanel.Size = UDim2.new(0, 440, 0, 540)
-    mainPanel.Position = UDim2.new(0.5, -220, 0.5, -270)
+    mainPanel.Size = UDim2.new(0, 0, 0, 0)
+    mainPanel.Position = UDim2.new(0.5, 0, 0.5, 0)
     mainPanel.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
     mainPanel.Parent = gui
     mainPanel.ClipsDescendants = true
     mainPanel.ZIndex = 10
+    mainPanel.Visible = false
     
     local mainCorner = Instance.new("UICorner", mainPanel)
     mainCorner.CornerRadius = UDim.new(0, 16)
     
     createGlow(mainPanel, libData.accent, 2)
 
-    local savedPosition = mainPanel.Position
-    local savedSize = mainPanel.Size
+    local savedPosition = UDim2.new(0.5, -220, 0.5, -270)
+    local savedSize = UDim2.new(0, 440, 0, 540)
+
+    -- STARTUP ANIMATION — appear and grow
+    task.delay(0.1, function()
+        mainPanel.Visible = true
+        TweenService:Create(mainPanel, TweenInfo.new(0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = savedSize,
+            Position = savedPosition
+        }):Play()
+    end)
 
     local function getAnchorPoint()
         local headerTopLeft = mainPanel.AbsolutePosition + Vector2.new(16, 12)
