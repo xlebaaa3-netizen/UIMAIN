@@ -1,5 +1,5 @@
 local CryoLib = {}
-
+-- дилда
 function CryoLib:CreateWindow(hubName)
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -15,7 +15,7 @@ function CryoLib:CreateWindow(hubName)
 
     -- [[ HELPER: Create Glow Effect with thick border ]]
     local function createGlow(parent, color, borderThickness)
-        local thickness = borderThickness or 6
+        local thickness = borderThickness or 4
         
         -- Main thick border
         local stroke = Instance.new("UIStroke", parent)
@@ -35,8 +35,8 @@ function CryoLib:CreateWindow(hubName)
         for i = 1, 4 do
             local glow = Instance.new("Frame", parent)
             glow.Name = "GlowLayer"..i
-            glow.Size = UDim2.new(1, thickness + (i * 4), 1, thickness + (i * 4))
-            glow.Position = UDim2.new(0, -(thickness/2) - (i * 2), 0, -(thickness/2) - (i * 2))
+            glow.Size = UDim2.new(1, thickness + (i * 3), 1, thickness + (i * 3))
+            glow.Position = UDim2.new(0, -(thickness/2) - (i * 1.5), 0, -(thickness/2) - (i * 1.5))
             glow.BackgroundColor3 = color
             glow.BackgroundTransparency = 0.7 + (i * 0.08)
             glow.ZIndex = parent.ZIndex - 1
@@ -46,10 +46,10 @@ function CryoLib:CreateWindow(hubName)
             if parentCorner then
                 glowCorner.CornerRadius = UDim.new(
                     parentCorner.CornerRadius.Scale, 
-                    parentCorner.CornerRadius.Offset + (i * 2)
+                    parentCorner.CornerRadius.Offset + (i * 1.5)
                 )
             else
-                glowCorner.CornerRadius = UDim.new(0, 8 + (i * 2))
+                glowCorner.CornerRadius = UDim.new(0, 8 + (i * 1.5))
             end
         end
         
@@ -65,8 +65,8 @@ function CryoLib:CreateWindow(hubName)
 
     -- [[ ПЛАВАЮЩАЯ КНОПКА С GLOW ]]
     local floatBtn = Instance.new("ImageButton")
-    floatBtn.Size = UDim2.new(0, 52, 0, 52)
-    floatBtn.Position = UDim2.new(0, 22, 0.5, -26)
+    floatBtn.Size = UDim2.new(0, 50, 0, 50)
+    floatBtn.Position = UDim2.new(0, 24, 0.5, -25)
     floatBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
     floatBtn.Image = "rbxassetid://12129379472"
     floatBtn.ZIndex = 100
@@ -75,8 +75,8 @@ function CryoLib:CreateWindow(hubName)
     local floatCorner = Instance.new("UICorner", floatBtn)
     floatCorner.CornerRadius = UDim.new(1, 0)
     
-    -- 6px glow for float button
-    createGlow(floatBtn, libData.accent, 6)
+    -- 4px glow for float button
+    createGlow(floatBtn, libData.accent, 4)
 
     -- Драг кнопки
     local fDrag, fS, fP
@@ -98,8 +98,8 @@ function CryoLib:CreateWindow(hubName)
     local mainCorner = Instance.new("UICorner", mainPanel)
     mainCorner.CornerRadius = UDim.new(0, 16)
     
-    -- 6px glow for main panel
-    createGlow(mainPanel, libData.accent, 6)
+    -- 4px glow for main panel
+    createGlow(mainPanel, libData.accent, 4)
 
     -- Сохраняем позицию и размер
     local savedPosition = mainPanel.Position
