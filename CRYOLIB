@@ -9,7 +9,8 @@ function CryoLib:CreateWindow(hubName)
     local libData = {
         tabs = {},
         accent = Color3.fromRGB(120, 170, 255),
-        visible = true
+        visible = true,
+        minimized = false
     }
 
     -- [[ ГЛАВНЫЙ GUI ]]
@@ -49,6 +50,7 @@ function CryoLib:CreateWindow(hubName)
     mainPanel.Position = UDim2.new(0.5, -220, 0.5, -270)
     mainPanel.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
     mainPanel.Parent = gui
+    mainPanel.ClipsDescendants = true
     
     local mainCorner = Instance.new("UICorner", mainPanel)
     mainCorner.CornerRadius = UDim.new(0, 16)
@@ -57,9 +59,59 @@ function CryoLib:CreateWindow(hubName)
     mainStroke.Color = Color3.fromRGB(40, 40, 50)
     mainStroke.Thickness = 1
 
+    -- Сохраняем позицию для восстановления
+    local savedPosition = mainPanel.Position
+    local savedSize = mainPanel.Size
+
+    local function animateShow()
+        mainPanel.Visible = true
+        mainPanel.Size = UDim2.new(0, 0, 0, 0)
+        mainPanel.Position = UDim2.new(0.5, 0, 0.5, 0)
+        TweenService:Create(mainPanel, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = savedSize,
+            Position = savedPosition
+        }):Play()
+    end
+
+    local function animateHide()
+        TweenService:Create(mainPanel, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0)
+        }):Play()
+        task.delay(0.25, function()
+            mainPanel.Visible = false
+            mainPanel.Size = savedSize
+            mainPanel.Position = savedPosition
+        end)
+    end
+
+    local function animateMinimize()
+        if libData.minimized then
+            -- Разворачиваем
+            TweenService:Create(mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Size = savedSize
+            }):Play()
+            tabContainer.Visible = true
+            contentArea.Visible = true
+            libData.minimized = false
+        else
+            -- Сворачиваем в заголовок
+            TweenService:Create(mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, 440, 0, 54)
+            }):Play()
+            tabContainer.Visible = false
+            contentArea.Visible = false
+            libData.minimized = true
+        end
+    end
+
     local function toggleGui()
         libData.visible = not libData.visible
-        mainPanel.Visible = libData.visible
+        if libData.visible then
+            animateShow()
+        else
+            animateHide()
+        end
     end
 
     floatBtn.MouseButton1Click:Connect(toggleGui)
@@ -100,6 +152,7 @@ function CryoLib:CreateWindow(hubName)
     headerTitle.TextXAlignment = Enum.TextXAlignment.Left
     headerTitle.Parent = header
 
+    -- [[ CLOSE BUTTON ]]
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0, 32, 0, 32)
     closeBtn.Position = UDim2.new(1, -42, 0, 11)
@@ -109,6 +162,7 @@ function CryoLib:CreateWindow(hubName)
     closeBtn.TextSize = 20
     closeBtn.TextColor3 = Color3.fromRGB(200, 80, 80)
     closeBtn.Parent = header
+    closeBtn.AutoButtonColor = false
     
     local closeCorner = Instance.new("UICorner", closeBtn)
     closeCorner.CornerRadius = UDim.new(0, 8)
@@ -116,12 +170,19 @@ function CryoLib:CreateWindow(hubName)
     closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
     
     closeBtn.MouseEnter:Connect(function()
-        TweenService:Create(closeBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(200, 80, 80), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+        TweenService:Create(closeBtn, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(220, 60, 60),
+            TextColor3 = Color3.fromRGB(255, 255, 255)
+        }):Play()
     end)
     closeBtn.MouseLeave:Connect(function()
-        TweenService:Create(closeBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 45), TextColor3 = Color3.fromRGB(200, 80, 80)}):Play()
+        TweenService:Create(closeBtn, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(35, 35, 45),
+            TextColor3 = Color3.fromRGB(200, 80, 80)
+        }):Play()
     end)
 
+    -- [[ MINIMIZE BUTTON ]]
     local minimizeBtn = Instance.new("TextButton")
     minimizeBtn.Size = UDim2.new(0, 32, 0, 32)
     minimizeBtn.Position = UDim2.new(1, -78, 0, 11)
@@ -131,26 +192,47 @@ function CryoLib:CreateWindow(hubName)
     minimizeBtn.TextSize = 20
     minimizeBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
     minimizeBtn.Parent = header
+    minimizeBtn.AutoButtonColor = false
     
     local minCorner = Instance.new("UICorner", minimizeBtn)
     minCorner.CornerRadius = UDim.new(0, 8)
     
-    minimizeBtn.MouseButton1Click:Connect(toggleGui)
+    minimizeBtn.MouseButton1Click:Connect(animateMinimize)
     
     minimizeBtn.MouseEnter:Connect(function()
-        TweenService:Create(minimizeBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(55, 55, 70)}):Play()
+        TweenService:Create(minimizeBtn, TweenInfo.new(0.2), {
+            BackgroundColor3 = libData.accent,
+            TextColor3 = Color3.fromRGB(255, 255, 255)
+        }):Play()
     end)
     minimizeBtn.MouseLeave:Connect(function()
-        TweenService:Create(minimizeBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 45)}):Play()
+        TweenService:Create(minimizeBtn, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(35, 35, 45),
+            TextColor3 = Color3.fromRGB(180, 180, 180)
+        }):Play()
     end)
 
-    -- Драг панели
+    -- Драг панели (только когда не свёрнуто)
     local dDrag, dS, dI
-    header.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dDrag = true dI = i.Position dS = mainPanel.Position end end)
-    UserInputService.InputChanged:Connect(function(i) if dDrag and i.UserInputType == Enum.UserInputType.MouseMovement then
-        local d = i.Position - dI mainPanel.Position = UDim2.new(dS.X.Scale, dS.X.Offset + d.X, dS.Y.Scale, dS.Y.Offset + d.Y)
-    end end)
-    UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dDrag = false end end)
+    header.InputBegan:Connect(function(i) 
+        if i.UserInputType == Enum.UserInputType.MouseButton1 and not libData.minimized then 
+            dDrag = true 
+            dI = i.Position 
+            dS = mainPanel.Position 
+        end 
+    end)
+    UserInputService.InputChanged:Connect(function(i) 
+        if dDrag and i.UserInputType == Enum.UserInputType.MouseMovement then
+            local d = i.Position - dI 
+            mainPanel.Position = UDim2.new(dS.X.Scale, dS.X.Offset + d.X, dS.Y.Scale, dS.Y.Offset + d.Y)
+            savedPosition = mainPanel.Position
+        end 
+    end)
+    UserInputService.InputEnded:Connect(function(i) 
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then 
+            dDrag = false 
+        end 
+    end)
 
     -- [[ КОНТЕЙНЕРЫ ]]
     local tabContainer = Instance.new("Frame", mainPanel)
