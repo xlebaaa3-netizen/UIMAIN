@@ -1,6 +1,6 @@
 local CryoLib = {}
 
-function CryoLib:CreateWindow(hubName, stateTable)
+function CryoLib:CreateWindow(hubName)
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
     local UserInputService = game:GetService("UserInputService")
@@ -12,7 +12,8 @@ function CryoLib:CreateWindow(hubName, stateTable)
         visible = true,
         minimized = false,
         closing = false,
-        stateTable = stateTable or {} -- ссылка на states из основного скрипта
+        activeToggles = {}, -- храним все активные тогглы для авто-отключения
+        dropdowns = {}      -- храним открытые дропдауны чтобы закрывать при клике вне
     }
 
     -- [[ HELPER: Create Glow Effect ]]
@@ -53,14 +54,14 @@ function CryoLib:CreateWindow(hubName, stateTable)
         return stroke
     end
 
-    -- [[ ГЛАВНЫЙ GUI ]]
+    -- [[ MAIN GUI ]]
     local gui = Instance.new("ScreenGui")
     gui.Name = "CryoLib_Official_Final"
     gui.ResetOnSpawn = false
     gui.DisplayOrder = 999
     gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-    -- [[ ПЛАВАЮЩАЯ КНОПКА ]]
+    -- [[ FLOATING BUTTON ]]
     local floatBtn = Instance.new("ImageButton")
     floatBtn.Size = UDim2.new(0, 0, 0, 0)
     floatBtn.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -80,15 +81,28 @@ function CryoLib:CreateWindow(hubName, stateTable)
         }):Play()
     end)
 
-    -- Драг кнопки
+    -- Drag float button
     local fDrag, fS, fP
-    floatBtn.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then fDrag = true fS = i.Position fP = floatBtn.Position end end)
-    UserInputService.InputChanged:Connect(function(i) if fDrag and i.UserInputType == Enum.UserInputType.MouseMovement then
-        local d = i.Position - fS floatBtn.Position = UDim2.new(fP.X.Scale, fP.X.Offset + d.X, fP.Y.Scale, fP.Y.Offset + d.Y)
-    end end)
-    UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then fDrag = false end end)
+    floatBtn.InputBegan:Connect(function(i) 
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then 
+            fDrag = true 
+            fS = i.Position 
+            fP = floatBtn.Position 
+        end 
+    end)
+    UserInputService.InputChanged:Connect(function(i) 
+        if fDrag and i.UserInputType == Enum.UserInputType.MouseMovement then
+            local d = i.Position - fS 
+            floatBtn.Position = UDim2.new(fP.X.Scale, fP.X.Offset + d.X, fP.Y.Scale, fP.Y.Offset + d.Y)
+        end 
+    end)
+    UserInputService.InputEnded:Connect(function(i) 
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then 
+            fDrag = false 
+        end 
+    end)
 
-    -- [[ ГЛАВНАЯ ПАНЕЛЬ ]]
+    -- [[ MAIN PANEL ]]
     local mainPanel = Instance.new("Frame")
     mainPanel.Size = UDim2.new(0, 0, 0, 0)
     mainPanel.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -104,14 +118,121 @@ function CryoLib:CreateWindow(hubName, stateTable)
 
     local savedPosition = UDim2.new(0.5, -220, 0.5, -270)
     local savedSize = UDim2.new(0, 440, 0, 540)
+    local minimizedSize = UDim2.new(0, 440, 0, 54)
 
-    -- STARTUP
+    -- Startup animation
     task.delay(0.1, function()
         mainPanel.Visible = true
         TweenService:Create(mainPanel, TweenInfo.new(0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
             Size = savedSize,
             Position = savedPosition
         }):Play()
+    end)
+
+    -- [[ ANIMATION FUNCTIONS ]]
+    local function animateShow()
+        mainPanel.Visible = true
+        TweenService:Create(mainPanel, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = savedSize,
+            Position = savedPosition
+        }):Play()
+        tabContainer.Visible = true
+        contentArea.Visible = true
+        libData.minimized = false
+    end
+
+    local function animateHide()
+        TweenService:Create(mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0)
+        }):Play()
+        task.delay(0.3, function()
+            mainPanel.Visible = false
+            mainPanel.Size = savedSize
+            mainPanel.Position = savedPosition
+        end)
+    end
+
+    -- [[ MINIMIZE — сворачивает только в заголовок ]]
+    local function animateMinimize()
+        if libData.minimized then
+            -- Разворачиваем
+            TweenService:Create(mainPanel, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                Size = savedSize
+            }):Play()
+            tabContainer.Visible = true
+            contentArea.Visible = true
+            libData.minimized = false
+        else
+            -- Сворачиваем в заголовок
+            TweenService:Create(mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                Size = minimizedSize
+            }):Play()
+            tabContainer.Visible = false
+            contentArea.Visible = false
+            libData.minimized = true
+        end
+    end
+
+    -- [[ CLOSE — отключает все функции и уничтожает GUI ]]
+    local function animateClose()
+        if libData.closing then return end
+        libData.closing = true
+        
+        -- Отключаем все активные тогглы
+        for _, toggleData in ipairs(libData.activeToggles) do
+            if toggleData.state then
+                toggleData.state = false
+                toggleData.callback(false)
+                -- Анимация выключения
+                if toggleData.bg then
+                    TweenService:Create(toggleData.bg, TweenInfo.new(0.25), {
+                        BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+                    }):Play()
+                end
+                if toggleData.circle then
+                    TweenService:Create(toggleData.circle, TweenInfo.new(0.25), {
+                        Position = UDim2.new(0, 2, 0.5, -9)
+                    }):Play()
+                end
+            end
+        end
+        
+        -- Закрываем все дропдауны
+        for _, dd in ipairs(libData.dropdowns) do
+            if dd.open then dd.close() end
+        end
+        
+        -- Анимация закрытия
+        TweenService:Create(mainPanel, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0)
+        }):Play()
+        
+        TweenService:Create(floatBtn, TweenInfo.new(0.4), {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0)
+        }):Play()
+        
+        task.delay(0.6, function()
+            gui:Destroy()
+        end)
+    end
+
+    local function toggleGui()
+        libData.visible = not libData.visible
+        if libData.visible then
+            animateShow()
+        else
+            animateHide()
+        end
+    end
+
+    floatBtn.MouseButton1Click:Connect(toggleGui)
+    UserInputService.InputBegan:Connect(function(i, gpe) 
+        if not gpe and i.KeyCode == Enum.KeyCode.K then 
+            toggleGui() 
+        end 
     end)
 
     -- [[ HEADER ]]
@@ -165,6 +286,7 @@ function CryoLib:CreateWindow(hubName, stateTable)
     closeBtn.AutoButtonColor = false
     closeBtn.ZIndex = 12
     
+    closeBtn.MouseButton1Click:Connect(animateClose)
     closeBtn.MouseEnter:Connect(function()
         TweenService:Create(closeBtn, TweenInfo.new(0.15), {TextColor3 = Color3.fromRGB(255, 80, 80)}):Play()
     end)
@@ -185,6 +307,7 @@ function CryoLib:CreateWindow(hubName, stateTable)
     minimizeBtn.AutoButtonColor = false
     minimizeBtn.ZIndex = 12
     
+    minimizeBtn.MouseButton1Click:Connect(animateMinimize)
     minimizeBtn.MouseEnter:Connect(function()
         TweenService:Create(minimizeBtn, TweenInfo.new(0.15), {TextColor3 = libData.accent}):Play()
     end)
@@ -192,7 +315,29 @@ function CryoLib:CreateWindow(hubName, stateTable)
         TweenService:Create(minimizeBtn, TweenInfo.new(0.15), {TextColor3 = Color3.fromRGB(150, 150, 150)}):Play()
     end)
 
-    -- [[ КОНТЕЙНЕРЫ ]]
+    -- Drag panel
+    local dDrag, dS, dI
+    header.InputBegan:Connect(function(i) 
+        if i.UserInputType == Enum.UserInputType.MouseButton1 and not libData.closing then 
+            dDrag = true 
+            dI = i.Position 
+            dS = mainPanel.Position 
+        end 
+    end)
+    UserInputService.InputChanged:Connect(function(i) 
+        if dDrag and i.UserInputType == Enum.UserInputType.MouseMovement then
+            local d = i.Position - dI 
+            mainPanel.Position = UDim2.new(dS.X.Scale, dS.X.Offset + d.X, dS.Y.Scale, dS.Y.Offset + d.Y)
+            savedPosition = mainPanel.Position
+        end 
+    end)
+    UserInputService.InputEnded:Connect(function(i) 
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then 
+            dDrag = false 
+        end 
+    end)
+
+    -- [[ CONTAINERS ]]
     local tabContainer = Instance.new("Frame", mainPanel)
     tabContainer.Size = UDim2.new(0, 110, 1, -54)
     tabContainer.Position = UDim2.new(0, 0, 0, 54)
@@ -225,116 +370,24 @@ function CryoLib:CreateWindow(hubName, stateTable)
     tabIndicator.Visible = false
     tabIndicator.ZIndex = 12
 
-    -- [[ ANIMATION FUNCTIONS ]]
-    local function animateShow()
-        mainPanel.Visible = true
-        TweenService:Create(mainPanel, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = savedSize,
-            Position = savedPosition
-        }):Play()
-        tabContainer.Visible = true
-        contentArea.Visible = true
-        libData.minimized = false
-    end
-
-    local function animateMinimize()
-        if libData.minimized then
-            -- Разворачиваем обратно
-            TweenService:Create(mainPanel, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                Size = savedSize,
-                Position = savedPosition
-            }):Play()
-            tabContainer.Visible = true
-            contentArea.Visible = true
-            libData.minimized = false
-        else
-            -- СВОРАЧИВАЕМ В ЗАГОЛОВОК (только header виден)
-            TweenService:Create(mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                Size = UDim2.new(0, 440, 0, 54),
-                Position = savedPosition
-            }):Play()
-            task.delay(0.3, function()
-                tabContainer.Visible = false
-                contentArea.Visible = false
-                libData.minimized = true
-            end)
-        end
-    end
-
-    local function animateClose()
-        if libData.closing then return end
-        libData.closing = true
-        
-        -- ОТКЛЮЧАЕМ ВСЕ ФУНКЦИИ (сбрасываем states)
-        for key, _ in pairs(libData.stateTable) do
-            if type(libData.stateTable[key]) == "boolean" then
-                libData.stateTable[key] = false
-            end
-        end
-        
-        -- Уведомляем все callback'и тогглов о закрытии
-        for _, tab in ipairs(libData.tabs) do
-            for _, element in ipairs(tab.elements or {}) do
-                if element.type == "toggle" and element.setState then
-                    element.setState(false)
+    -- [[ CLICK OUTSIDE TO CLOSE DROPDOWNS ]]
+    UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local mousePos = UserInputService:GetMouseLocation()
+            for _, dd in ipairs(libData.dropdowns) do
+                if dd.open and dd.frame then
+                    local absPos = dd.frame.AbsolutePosition
+                    local absSize = dd.frame.AbsoluteSize
+                    if mousePos.X < absPos.X or mousePos.X > absPos.X + absSize.X or
+                       mousePos.Y < absPos.Y or mousePos.Y > absPos.Y + absSize.Y then
+                        dd.close()
+                    end
                 end
             end
         end
-        
-        TweenService:Create(mainPanel, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-            Size = UDim2.new(0, 0, 0, 0),
-            Position = UDim2.new(0.5, 0, 0.5, 0)
-        }):Play()
-        
-        TweenService:Create(floatBtn, TweenInfo.new(0.4), {
-            Size = UDim2.new(0, 0, 0, 0),
-            Position = UDim2.new(0.5, 0, 0.5, 0)
-        }):Play()
-        
-        task.delay(0.6, function()
-            gui:Destroy()
-        end)
-    end
-
-    local function toggleGui()
-        libData.visible = not libData.visible
-        if libData.visible then
-            animateShow()
-        else
-            mainPanel.Visible = false
-            tabContainer.Visible = false
-            contentArea.Visible = false
-        end
-    end
-
-    closeBtn.MouseButton1Click:Connect(animateClose)
-    minimizeBtn.MouseButton1Click:Connect(animateMinimize)
-    floatBtn.MouseButton1Click:Connect(toggleGui)
-    UserInputService.InputBegan:Connect(function(i, gpe) if not gpe and i.KeyCode == Enum.KeyCode.K then toggleGui() end end)
-
-    -- Драг панели
-    local dDrag, dS, dI
-    header.InputBegan:Connect(function(i) 
-        if i.UserInputType == Enum.UserInputType.MouseButton1 and not libData.minimized and not libData.closing then 
-            dDrag = true 
-            dI = i.Position 
-            dS = mainPanel.Position 
-        end 
-    end)
-    UserInputService.InputChanged:Connect(function(i) 
-        if dDrag and i.UserInputType == Enum.UserInputType.MouseMovement then
-            local d = i.Position - dI 
-            mainPanel.Position = UDim2.new(dS.X.Scale, dS.X.Offset + d.X, dS.Y.Scale, dS.Y.Offset + d.Y)
-            savedPosition = mainPanel.Position
-        end 
-    end)
-    UserInputService.InputEnded:Connect(function(i) 
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then 
-            dDrag = false 
-        end 
     end)
 
-    -- [[ CREATE TAB ]]
     function libData:CreateTab(name)
         local tabObj = {}
         local scroll = Instance.new("ScrollingFrame", contentArea)
@@ -379,9 +432,6 @@ function CryoLib:CreateWindow(hubName, stateTable)
         local tabBgCorner = Instance.new("UICorner", tabBg)
         tabBgCorner.CornerRadius = UDim.new(0, 8)
 
-        -- Храним элементы таба для закрытия
-        tabObj.elements = {}
-
         btn.MouseButton1Click:Connect(function()
             for _, t in ipairs(libData.tabs) do
                 t.s.Visible = false
@@ -419,7 +469,7 @@ function CryoLib:CreateWindow(hubName, stateTable)
             tabIndicator.Position = UDim2.new(0, 8, 0, btn.AbsolutePosition.Y - tabContainer.AbsolutePosition.Y)
         end
 
-        -- [[ TOGGLE (обновлённый с setState) ]]
+        -- [[ TOGGLE — теперь регистрируется для авто-отключения ]]
         function tabObj:CreateToggle(txt, callback)
             local state = false
             local f = Instance.new("Frame", scroll)
@@ -468,10 +518,19 @@ function CryoLib:CreateWindow(hubName, stateTable)
             b.Text = ""
             b.AutoButtonColor = false
             b.ZIndex = 14
-
-            -- Функция для принудительного сброса состояния
-            local function setState(newState)
-                state = newState
+            
+            -- Регистрируем тоггл для авто-отключения
+            local toggleData = {
+                state = state,
+                callback = callback,
+                bg = bg,
+                circle = c
+            }
+            table.insert(libData.activeToggles, toggleData)
+            
+            b.MouseButton1Click:Connect(function()
+                state = not state
+                toggleData.state = state
                 TweenService:Create(bg, TweenInfo.new(0.25), {
                     BackgroundColor3 = state and libData.accent or Color3.fromRGB(50, 50, 65)
                 }):Play()
@@ -479,16 +538,7 @@ function CryoLib:CreateWindow(hubName, stateTable)
                     Position = state and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
                 }):Play()
                 callback(state)
-            end
-
-            b.MouseButton1Click:Connect(function()
-                setState(not state)
             end)
-
-            table.insert(tabObj.elements, {
-                type = "toggle",
-                setState = setState
-            })
         end
 
         -- [[ SLIDER ]]
@@ -557,9 +607,22 @@ function CryoLib:CreateWindow(hubName, stateTable)
                 callback(val)
             end
             
-            track.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true update() end end)
-            UserInputService.InputChanged:Connect(function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then update() end end)
-            UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+            track.InputBegan:Connect(function(i) 
+                if i.UserInputType == Enum.UserInputType.MouseButton1 then 
+                    dragging = true 
+                    update() 
+                end 
+            end)
+            UserInputService.InputChanged:Connect(function(i) 
+                if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then 
+                    update() 
+                end 
+            end)
+            UserInputService.InputEnded:Connect(function(i) 
+                if i.UserInputType == Enum.UserInputType.MouseButton1 then 
+                    dragging = false 
+                end 
+            end)
         end
 
         -- [[ BUTTON ]]
@@ -600,156 +663,300 @@ function CryoLib:CreateWindow(hubName, stateTable)
             l.ZIndex = 12
         end
 
-        -- [[ MULTI-SELECT LIST (новый элемент) ]]
-        function tabObj:CreateMultiList(text, items, callback)
-            local selected = {}
-            local frame = Instance.new("Frame", scroll)
-            frame.Size = UDim2.new(1, -4, 0, 120)
-            frame.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
-            frame.BorderSizePixel = 0
-            frame.ZIndex = 11
+        -- [[ DROPDOWN — компактный ярлык, раскрывается вниз, с прокруткой ]]
+        function tabObj:CreateDropdown(text, options, multiSelect, callback)
+            local selected = multiSelect and {} or (options[1] or "")
+            local open = false
             
-            local frameCorner = Instance.new("UICorner", frame)
-            frameCorner.CornerRadius = UDim.new(0, 10)
+            local f = Instance.new("Frame", scroll)
+            f.Size = UDim2.new(1, -4, 0, 48) -- компактная высота как у тоггла
+            f.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
+            f.BorderSizePixel = 0
+            f.ZIndex = 11
+            f.ClipsDescendants = false -- важно! чтобы дропдаун выходил за границы
             
-            -- Заголовок
-            local title = Instance.new("TextLabel", frame)
-            title.Size = UDim2.new(1, -20, 0, 28)
-            title.Position = UDim2.new(0, 14, 0, 6)
-            title.BackgroundTransparency = 1
-            title.Text = text
-            title.Font = Enum.Font.GothamBold
-            title.TextSize = 14
-            title.TextColor3 = Color3.fromRGB(220, 220, 235)
-            title.TextXAlignment = Enum.TextXAlignment.Left
-            title.ZIndex = 12
+            local fCorner = Instance.new("UICorner", f)
+            fCorner.CornerRadius = UDim.new(0, 10)
             
-            -- Контейнер для пунктов
-            local itemsFrame = Instance.new("Frame", frame)
-            itemsFrame.Size = UDim2.new(1, -20, 1, -40)
-            itemsFrame.Position = UDim2.new(0, 10, 0, 34)
-            itemsFrame.BackgroundTransparency = 1
-            itemsFrame.ZIndex = 12
+            local l = Instance.new("TextLabel", f)
+            l.Size = UDim2.new(1, -50, 1, 0)
+            l.Position = UDim2.new(0, 14, 0, 0)
+            l.Text = text .. ": " .. (multiSelect and "None" or tostring(selected))
+            l.Font = Enum.Font.GothamBold
+            l.TextColor3 = Color3.fromRGB(220, 220, 235)
+            l.BackgroundTransparency = 1
+            l.TextXAlignment = Enum.TextXAlignment.Left
+            l.TextSize = 14
+            l.ZIndex = 12
+            l.TextTruncate = Enum.TextTruncate.AtEnd
             
-            local itemsLayout = Instance.new("UIListLayout", itemsFrame)
-            itemsLayout.Padding = UDim.new(0, 6)
-            itemsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            -- Иконка стрелки
+            local arrow = Instance.new("TextLabel", f)
+            arrow.Size = UDim2.new(0, 24, 0, 24)
+            arrow.Position = UDim2.new(1, -34, 0.5, -12)
+            arrow.BackgroundTransparency = 1
+            arrow.Text = "▼"
+            arrow.Font = Enum.Font.GothamBold
+            arrow.TextSize = 12
+            arrow.TextColor3 = Color3.fromRGB(150, 150, 165)
+            arrow.ZIndex = 12
             
-            local itemElements = {}
-
-            for i, itemText in ipairs(items) do
-                local itemBtn = Instance.new("TextButton", itemsFrame)
-                itemBtn.Size = UDim2.new(1, 0, 0, 28)
-                itemBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
-                itemBtn.Text = "  " .. itemText
+            -- Контейнер выпадающего списка (изначально скрыт)
+            local listFrame = Instance.new("Frame", f)
+            listFrame.Size = UDim2.new(1, 0, 0, 0)
+            listFrame.Position = UDim2.new(0, 0, 0, 50)
+            listFrame.BackgroundColor3 = Color3.fromRGB(32, 32, 42)
+            listFrame.BorderSizePixel = 0
+            listFrame.ZIndex = 15
+            listFrame.Visible = false
+            listFrame.ClipsDescendants = true
+            
+            local listCorner = Instance.new("UICorner", listFrame)
+            listCorner.CornerRadius = UDim.new(0, 10)
+            
+            -- Glow для списка
+            local listStroke = Instance.new("UIStroke", listFrame)
+            listStroke.Color = libData.accent
+            listStroke.Thickness = 1.5
+            listStroke.Transparency = 0.3
+            
+            -- ScrollingFrame для прокрутки элементов
+            local listScroll = Instance.new("ScrollingFrame", listFrame)
+            listScroll.Size = UDim2.new(1, -8, 1, -8)
+            listScroll.Position = UDim2.new(0, 4, 0, 4)
+            listScroll.BackgroundTransparency = 1
+            listScroll.BorderSizePixel = 0
+            listScroll.ScrollBarThickness = 2
+            listScroll.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 100)
+            listScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            listScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+            listScroll.ZIndex = 16
+            
+            local listLayout = Instance.new("UIListLayout", listScroll)
+            listLayout.Padding = UDim.new(0, 2)
+            listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            
+            local listPadding = Instance.new("UIPadding", listScroll)
+            listPadding.PaddingTop = UDim.new(0, 2)
+            listPadding.PaddingBottom = UDim.new(0, 2)
+            
+            local itemButtons = {}
+            
+            local function updateLabel()
+                if multiSelect then
+                    local count = #selected
+                    if count == 0 then
+                        l.Text = text .. ": None"
+                    elseif count == 1 then
+                        l.Text = text .. ": " .. selected[1]
+                    else
+                        l.Text = text .. ": " .. count .. " selected"
+                    end
+                else
+                    l.Text = text .. ": " .. tostring(selected)
+                end
+            end
+            
+            local function createItem(opt, index)
+                local itemBtn = Instance.new("TextButton", listScroll)
+                itemBtn.Size = UDim2.new(1, 0, 0, 32)
+                itemBtn.BackgroundTransparency = 1
+                itemBtn.Text = "  " .. opt
                 itemBtn.Font = Enum.Font.GothamBold
                 itemBtn.TextSize = 13
                 itemBtn.TextColor3 = Color3.fromRGB(180, 180, 200)
                 itemBtn.TextXAlignment = Enum.TextXAlignment.Left
+                itemBtn.ZIndex = 17
                 itemBtn.AutoButtonColor = false
-                itemBtn.ZIndex = 13
                 
-                local itemCorner = Instance.new("UICorner", itemBtn)
-                itemCorner.CornerRadius = UDim.new(0, 6)
+                local isSelected = multiSelect and table.find(selected, opt) or (selected == opt)
                 
-                -- Галочка
-                local check = Instance.new("Frame", itemBtn)
-                check.Size = UDim2.new(0, 18, 0, 18)
-                check.Position = UDim2.new(1, -26, 0.5, -9)
-                check.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
-                check.BorderSizePixel = 0
-                check.ZIndex = 14
+                -- Индикатор выбора (галочка/точка)
+                local indicator = Instance.new("Frame", itemBtn)
+                indicator.Size = UDim2.new(0, 14, 0, 14)
+                indicator.Position = UDim2.new(1, -22, 0.5, -7)
+                indicator.BackgroundColor3 = isSelected and libData.accent or Color3.fromRGB(50, 50, 65)
+                indicator.BorderSizePixel = 0
+                indicator.ZIndex = 18
                 
-                local checkCorner = Instance.new("UICorner", check)
-                checkCorner.CornerRadius = UDim.new(0, 4)
+                local indCorner = Instance.new("UICorner", indicator)
+                if multiSelect then
+                    indCorner.CornerRadius = UDim.new(0, 3) -- квадрат для мультиселекта
+                else
+                    indCorner.CornerRadius = UDim.new(1, 0) -- круг для одиночного
+                end
                 
-                local checkMark = Instance.new("TextLabel", check)
-                checkMark.Size = UDim2.new(1, 0, 1, 0)
-                checkMark.BackgroundTransparency = 1
-                checkMark.Text = "✓"
-                checkMark.Font = Enum.Font.GothamBold
-                checkMark.TextSize = 14
-                checkMark.TextColor3 = Color3.fromRGB(255, 255, 255)
-                checkMark.Visible = false
-                checkMark.ZIndex = 15
-
-                itemBtn.MouseButton1Click:Connect(function()
-                    if selected[itemText] then
-                        -- Отключаем
-                        selected[itemText] = nil
-                        TweenService:Create(itemBtn, TweenInfo.new(0.15), {
-                            BackgroundColor3 = Color3.fromRGB(35, 35, 48),
-                            TextColor3 = Color3.fromRGB(180, 180, 200)
-                        }):Play()
-                        TweenService:Create(check, TweenInfo.new(0.15), {
-                            BackgroundColor3 = Color3.fromRGB(50, 50, 65)
-                        }):Play()
-                        checkMark.Visible = false
-                    else
-                        -- Включаем
-                        selected[itemText] = true
-                        TweenService:Create(itemBtn, TweenInfo.new(0.15), {
-                            BackgroundColor3 = Color3.fromRGB(40, 55, 80),
-                            TextColor3 = Color3.fromRGB(255, 255, 255)
-                        }):Play()
-                        TweenService:Create(check, TweenInfo.new(0.15), {
-                            BackgroundColor3 = libData.accent
-                        }):Play()
-                        checkMark.Visible = true
-                    end
-                    
-                    -- Формируем массив выбранных
-                    local result = {}
-                    for k, _ in pairs(selected) do
-                        table.insert(result, k)
-                    end
-                    callback(result)
-                end)
+                -- Галочка для мультиселекта
+                if multiSelect and isSelected then
+                    local check = Instance.new("TextLabel", indicator)
+                    check.Size = UDim2.new(1, 0, 1, 0)
+                    check.BackgroundTransparency = 1
+                    check.Text = "✓"
+                    check.Font = Enum.Font.GothamBold
+                    check.TextSize = 10
+                    check.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    check.ZIndex = 19
+                end
                 
                 itemBtn.MouseEnter:Connect(function()
-                    if not selected[itemText] then
-                        TweenService:Create(itemBtn, TweenInfo.new(0.15), {
-                            BackgroundColor3 = Color3.fromRGB(42, 42, 55)
-                        }):Play()
-                    end
+                    TweenService:Create(itemBtn, TweenInfo.new(0.15), {
+                        BackgroundTransparency = 0.85,
+                        BackgroundColor3 = libData.accent
+                    }):Play()
                 end)
                 itemBtn.MouseLeave:Connect(function()
-                    if not selected[itemText] then
-                        TweenService:Create(itemBtn, TweenInfo.new(0.15), {
-                            BackgroundColor3 = Color3.fromRGB(35, 35, 48)
-                        }):Play()
-                    end
+                    TweenService:Create(itemBtn, TweenInfo.new(0.15), {
+                        BackgroundTransparency = 1
+                    }):Play()
                 end)
                 
-                table.insert(itemElements, {btn = itemBtn, text = itemText})
+                itemBtn.MouseButton1Click:Connect(function()
+                    if multiSelect then
+                        local found = table.find(selected, opt)
+                        if found then
+                            table.remove(selected, found)
+                            indicator.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+                            -- Удаляем галочку
+                            for _, child in ipairs(indicator:GetChildren()) do
+                                if child:IsA("TextLabel") then child:Destroy() end
+                            end
+                        else
+                            table.insert(selected, opt)
+                            indicator.BackgroundColor3 = libData.accent
+                            local check = Instance.new("TextLabel", indicator)
+                            check.Size = UDim2.new(1, 0, 1, 0)
+                            check.BackgroundTransparency = 1
+                            check.Text = "✓"
+                            check.Font = Enum.Font.GothamBold
+                            check.TextSize = 10
+                            check.TextColor3 = Color3.fromRGB(255, 255, 255)
+                            check.ZIndex = 19
+                        end
+                        callback(selected)
+                    else
+                        selected = opt
+                        -- Сбрасываем все индикаторы
+                        for _, btn in ipairs(itemButtons) do
+                            btn.indicator.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+                        end
+                        indicator.BackgroundColor3 = libData.accent
+                        callback(selected)
+                        closeDropdown()
+                    end
+                    updateLabel()
+                end)
+                
+                table.insert(itemButtons, {btn = itemBtn, indicator = indicator})
             end
             
-            -- Авторазмер фрейма под количество элементов
-            local totalHeight = 120 + (#items * 34)
-            frame.Size = UDim2.new(1, -4, 0, math.min(totalHeight, 300))
+            for i, opt in ipairs(options) do
+                createItem(opt, i)
+            end
+            
+            -- Рассчитываем высоту списка (макс 160, минимум по содержимому)
+            local contentHeight = #options * 34 + 4
+            local maxHeight = math.min(contentHeight, 160)
+            
+            local function openDropdown()
+                open = true
+                arrow.Text = "▲"
+                listFrame.Visible = true
+                TweenService:Create(listFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(1, 0, 0, maxHeight)
+                }):Play()
+                TweenService:Create(arrow, TweenInfo.new(0.2), {
+                    TextColor3 = libData.accent
+                }):Play()
+            end
+            
+            local function closeDropdown()
+                open = false
+                arrow.Text = "▼"
+                TweenService:Create(listFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                    Size = UDim2.new(1, 0, 0, 0)
+                }):Play()
+                TweenService:Create(arrow, TweenInfo.new(0.2), {
+                    TextColor3 = Color3.fromRGB(150, 150, 165)
+                }):Play()
+                task.delay(0.2, function()
+                    if not open then listFrame.Visible = false end
+                end)
+            end
+            
+            -- Клик по основному фрейму открывает/закрывает
+            local clickBtn = Instance.new("TextButton", f)
+            clickBtn.Size = UDim2.new(1, 0, 1, 0)
+            clickBtn.BackgroundTransparency = 1
+            clickBtn.Text = ""
+            clickBtn.ZIndex = 14
+            clickBtn.AutoButtonColor = false
+            
+            clickBtn.MouseButton1Click:Connect(function()
+                if open then
+                    closeDropdown()
+                else
+                    -- Закрываем другие открытые дропдауны
+                    for _, dd in ipairs(libData.dropdowns) do
+                        if dd ~= dropdownData and dd.open then dd.close() end
+                    end
+                    openDropdown()
+                end
+            end)
+            
+            -- Регистрируем дропдаун
+            local dropdownData = {
+                open = false,
+                frame = f,
+                close = closeDropdown
+            }
+            table.insert(libData.dropdowns, dropdownData)
+            
+            -- Обновляем статус open через метатаблицу или просто следим
+            local mt = {
+                __index = function(t, k)
+                    if k == "open" then return open end
+                    return rawget(t, k)
+                end
+            }
+            setmetatable(dropdownData, mt)
             
             return {
                 GetSelected = function()
-                    local result = {}
-                    for k, _ in pairs(selected) do
-                        table.insert(result, k)
-                    end
-                    return result
+                    return multiSelect and selected or selected
                 end,
-                SetSelected = function(itemsToSelect)
-                    selected = {}
-                    for _, v in ipairs(itemsToSelect) do
-                        selected[v] = true
+                SetSelected = function(val)
+                    if multiSelect then
+                        selected = type(val) == "table" and val or {val}
+                    else
+                        selected = val
                     end
-                    -- Обновляем визуал (упрощённо)
-                    for _, elem in ipairs(itemElements) do
-                        local isSel = selected[elem.text] ~= nil
-                        elem.btn.BackgroundColor3 = isSel and Color3.fromRGB(40, 55, 80) or Color3.fromRGB(35, 35, 48)
-                        elem.btn.TextColor3 = isSel and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 200)
-                        elem.btn:FindFirstChild("Frame").BackgroundColor3 = isSel and libData.accent or Color3.fromRGB(50, 50, 65)
-                        elem.btn:FindFirstChild("Frame"):FindFirstChild("TextLabel").Visible = isSel
+                    updateLabel()
+                    -- Обновляем визуал индикаторов
+                    for i, btnData in ipairs(itemButtons) do
+                        local isSel = multiSelect and table.find(selected, options[i]) or (selected == options[i])
+                        btnData.indicator.BackgroundColor3 = isSel and libData.accent or Color3.fromRGB(50, 50, 65)
+                        if multiSelect and isSel then
+                            -- добавить галочку если нет
+                            local hasCheck = false
+                            for _, child in ipairs(btnData.indicator:GetChildren()) do
+                                if child:IsA("TextLabel") then hasCheck = true end
+                            end
+                            if not hasCheck then
+                                local check = Instance.new("TextLabel", btnData.indicator)
+                                check.Size = UDim2.new(1, 0, 1, 0)
+                                check.BackgroundTransparency = 1
+                                check.Text = "✓"
+                                check.Font = Enum.Font.GothamBold
+                                check.TextSize = 10
+                                check.TextColor3 = Color3.fromRGB(255, 255, 255)
+                                check.ZIndex = 19
+                            end
+                        elseif multiSelect and not isSel then
+                            for _, child in ipairs(btnData.indicator:GetChildren()) do
+                                if child:IsA("TextLabel") then child:Destroy() end
+                            end
+                        end
                     end
-                    callback(itemsToSelect)
                 end
             }
         end
