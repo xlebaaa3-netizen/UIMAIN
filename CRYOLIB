@@ -1,6 +1,6 @@
 local CryoLib = {}
 
-function CryoLib:CreateWindow(hubName)
+function CryoLib:CreateWindow(hubName, stateTable)
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
     local UserInputService = game:GetService("UserInputService")
@@ -11,13 +11,13 @@ function CryoLib:CreateWindow(hubName)
         accent = Color3.fromRGB(120, 170, 255),
         visible = true,
         minimized = false,
-        closing = false
+        closing = false,
+        stateTable = stateTable or {} -- ссылка на states из основного скрипта
     }
 
-    -- [[ HELPER: Create Glow Effect with thin border ]]
+    -- [[ HELPER: Create Glow Effect ]]
     local function createGlow(parent, color, borderThickness)
         local thickness = borderThickness or 2
-        
         local stroke = Instance.new("UIStroke", parent)
         stroke.Color = color
         stroke.Thickness = thickness
@@ -50,7 +50,6 @@ function CryoLib:CreateWindow(hubName)
                 glowCorner.CornerRadius = UDim.new(0, 8 + i)
             end
         end
-        
         return stroke
     end
 
@@ -61,7 +60,7 @@ function CryoLib:CreateWindow(hubName)
     gui.DisplayOrder = 999
     gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-    -- [[ ПЛАВАЮЩАЯ КНОПКА С GLOW ]]
+    -- [[ ПЛАВАЮЩАЯ КНОПКА ]]
     local floatBtn = Instance.new("ImageButton")
     floatBtn.Size = UDim2.new(0, 0, 0, 0)
     floatBtn.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -72,10 +71,8 @@ function CryoLib:CreateWindow(hubName)
     
     local floatCorner = Instance.new("UICorner", floatBtn)
     floatCorner.CornerRadius = UDim.new(1, 0)
-    
     createGlow(floatBtn, libData.accent, 2)
 
-    -- Animate float button appearance
     task.delay(0.2, function()
         TweenService:Create(floatBtn, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
             Size = UDim2.new(0, 48, 0, 48),
@@ -91,7 +88,7 @@ function CryoLib:CreateWindow(hubName)
     end end)
     UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then fDrag = false end end)
 
-    -- [[ ГЛАВНАЯ ПАНЕЛЬ С GLOW ]]
+    -- [[ ГЛАВНАЯ ПАНЕЛЬ ]]
     local mainPanel = Instance.new("Frame")
     mainPanel.Size = UDim2.new(0, 0, 0, 0)
     mainPanel.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -103,13 +100,12 @@ function CryoLib:CreateWindow(hubName)
     
     local mainCorner = Instance.new("UICorner", mainPanel)
     mainCorner.CornerRadius = UDim.new(0, 16)
-    
     createGlow(mainPanel, libData.accent, 2)
 
     local savedPosition = UDim2.new(0.5, -220, 0.5, -270)
     local savedSize = UDim2.new(0, 440, 0, 540)
 
-    -- STARTUP ANIMATION — appear and grow
+    -- STARTUP
     task.delay(0.1, function()
         mainPanel.Visible = true
         TweenService:Create(mainPanel, TweenInfo.new(0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
@@ -117,99 +113,6 @@ function CryoLib:CreateWindow(hubName)
             Position = savedPosition
         }):Play()
     end)
-
-    local function getAnchorPoint()
-        local headerTopLeft = mainPanel.AbsolutePosition + Vector2.new(16, 12)
-        return UDim2.new(0, headerTopLeft.X, 0, headerTopLeft.Y)
-    end
-
-    local function animateShow()
-        mainPanel.Visible = true
-        local anchor = getAnchorPoint()
-        mainPanel.Size = UDim2.new(0, 0, 0, 0)
-        mainPanel.Position = anchor
-        TweenService:Create(mainPanel, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = savedSize,
-            Position = savedPosition
-        }):Play()
-    end
-
-    local function animateHide()
-        local anchor = getAnchorPoint()
-        TweenService:Create(mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-            Size = UDim2.new(0, 0, 0, 0),
-            Position = anchor
-        }):Play()
-        task.delay(0.3, function()
-            mainPanel.Visible = false
-            mainPanel.Size = savedSize
-            mainPanel.Position = savedPosition
-        end)
-    end
-
-    local function animateMinimize()
-        if libData.minimized then
-            local anchor = getAnchorPoint()
-            mainPanel.Size = UDim2.new(0, 440, 0, 54)
-            mainPanel.Position = anchor
-            mainPanel.Visible = true
-            TweenService:Create(mainPanel, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                Size = savedSize,
-                Position = savedPosition
-            }):Play()
-            tabContainer.Visible = true
-            contentArea.Visible = true
-            libData.minimized = false
-        else
-            local anchor = getAnchorPoint()
-            TweenService:Create(mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                Size = UDim2.new(0, 0, 0, 0),
-                Position = anchor
-            }):Play()
-            task.delay(0.3, function()
-                tabContainer.Visible = false
-                contentArea.Visible = false
-                mainPanel.Size = UDim2.new(0, 440, 0, 54)
-                mainPanel.Position = savedPosition
-                libData.minimized = true
-            end)
-        end
-    end
-
-    -- [[ SIMPLE CLOSE — shrink and destroy ]]
-    local function animateClose()
-        if libData.closing then return end
-        libData.closing = true
-        
-        -- Shrink to center
-        local center = UDim2.new(0.5, 0, 0.5, 0)
-        TweenService:Create(mainPanel, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-            Size = UDim2.new(0, 0, 0, 0),
-            Position = center
-        }):Play()
-        
-        -- Fade out float button
-        TweenService:Create(floatBtn, TweenInfo.new(0.4), {
-            Size = UDim2.new(0, 0, 0, 0),
-            Position = UDim2.new(0.5, 0, 0.5, 0)
-        }):Play()
-        
-        task.delay(0.6, function()
-            gui:Destroy()
-        end)
-    end
-
-    local function toggleGui()
-        libData.visible = not libData.visible
-        if libData.visible then
-            animateShow()
-        else
-            animateHide()
-        end
-    end
-
-    floatBtn.MouseButton1Click:Connect(toggleGui)
-    UserInputService.InputBegan:Connect(function(i, gpe) if not gpe and i.KeyCode == Enum.KeyCode.K then toggleGui() end end)
 
     -- [[ HEADER ]]
     local header = Instance.new("Frame", mainPanel)
@@ -262,17 +165,11 @@ function CryoLib:CreateWindow(hubName)
     closeBtn.AutoButtonColor = false
     closeBtn.ZIndex = 12
     
-    closeBtn.MouseButton1Click:Connect(animateClose)
-    
     closeBtn.MouseEnter:Connect(function()
-        TweenService:Create(closeBtn, TweenInfo.new(0.15), {
-            TextColor3 = Color3.fromRGB(255, 80, 80)
-        }):Play()
+        TweenService:Create(closeBtn, TweenInfo.new(0.15), {TextColor3 = Color3.fromRGB(255, 80, 80)}):Play()
     end)
     closeBtn.MouseLeave:Connect(function()
-        TweenService:Create(closeBtn, TweenInfo.new(0.15), {
-            TextColor3 = Color3.fromRGB(150, 150, 150)
-        }):Play()
+        TweenService:Create(closeBtn, TweenInfo.new(0.15), {TextColor3 = Color3.fromRGB(150, 150, 150)}):Play()
     end)
 
     -- [[ MINIMIZE BUTTON ]]
@@ -288,39 +185,11 @@ function CryoLib:CreateWindow(hubName)
     minimizeBtn.AutoButtonColor = false
     minimizeBtn.ZIndex = 12
     
-    minimizeBtn.MouseButton1Click:Connect(animateMinimize)
-    
     minimizeBtn.MouseEnter:Connect(function()
-        TweenService:Create(minimizeBtn, TweenInfo.new(0.15), {
-            TextColor3 = libData.accent
-        }):Play()
+        TweenService:Create(minimizeBtn, TweenInfo.new(0.15), {TextColor3 = libData.accent}):Play()
     end)
     minimizeBtn.MouseLeave:Connect(function()
-        TweenService:Create(minimizeBtn, TweenInfo.new(0.15), {
-            TextColor3 = Color3.fromRGB(150, 150, 150)
-        }):Play()
-    end)
-
-    -- Драг панели
-    local dDrag, dS, dI
-    header.InputBegan:Connect(function(i) 
-        if i.UserInputType == Enum.UserInputType.MouseButton1 and not libData.minimized and not libData.closing then 
-            dDrag = true 
-            dI = i.Position 
-            dS = mainPanel.Position 
-        end 
-    end)
-    UserInputService.InputChanged:Connect(function(i) 
-        if dDrag and i.UserInputType == Enum.UserInputType.MouseMovement then
-            local d = i.Position - dI 
-            mainPanel.Position = UDim2.new(dS.X.Scale, dS.X.Offset + d.X, dS.Y.Scale, dS.Y.Offset + d.Y)
-            savedPosition = mainPanel.Position
-        end 
-    end)
-    UserInputService.InputEnded:Connect(function(i) 
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then 
-            dDrag = false 
-        end 
+        TweenService:Create(minimizeBtn, TweenInfo.new(0.15), {TextColor3 = Color3.fromRGB(150, 150, 150)}):Play()
     end)
 
     -- [[ КОНТЕЙНЕРЫ ]]
@@ -356,6 +225,116 @@ function CryoLib:CreateWindow(hubName)
     tabIndicator.Visible = false
     tabIndicator.ZIndex = 12
 
+    -- [[ ANIMATION FUNCTIONS ]]
+    local function animateShow()
+        mainPanel.Visible = true
+        TweenService:Create(mainPanel, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = savedSize,
+            Position = savedPosition
+        }):Play()
+        tabContainer.Visible = true
+        contentArea.Visible = true
+        libData.minimized = false
+    end
+
+    local function animateMinimize()
+        if libData.minimized then
+            -- Разворачиваем обратно
+            TweenService:Create(mainPanel, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                Size = savedSize,
+                Position = savedPosition
+            }):Play()
+            tabContainer.Visible = true
+            contentArea.Visible = true
+            libData.minimized = false
+        else
+            -- СВОРАЧИВАЕМ В ЗАГОЛОВОК (только header виден)
+            TweenService:Create(mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                Size = UDim2.new(0, 440, 0, 54),
+                Position = savedPosition
+            }):Play()
+            task.delay(0.3, function()
+                tabContainer.Visible = false
+                contentArea.Visible = false
+                libData.minimized = true
+            end)
+        end
+    end
+
+    local function animateClose()
+        if libData.closing then return end
+        libData.closing = true
+        
+        -- ОТКЛЮЧАЕМ ВСЕ ФУНКЦИИ (сбрасываем states)
+        for key, _ in pairs(libData.stateTable) do
+            if type(libData.stateTable[key]) == "boolean" then
+                libData.stateTable[key] = false
+            end
+        end
+        
+        -- Уведомляем все callback'и тогглов о закрытии
+        for _, tab in ipairs(libData.tabs) do
+            for _, element in ipairs(tab.elements or {}) do
+                if element.type == "toggle" and element.setState then
+                    element.setState(false)
+                end
+            end
+        end
+        
+        TweenService:Create(mainPanel, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0)
+        }):Play()
+        
+        TweenService:Create(floatBtn, TweenInfo.new(0.4), {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0)
+        }):Play()
+        
+        task.delay(0.6, function()
+            gui:Destroy()
+        end)
+    end
+
+    local function toggleGui()
+        libData.visible = not libData.visible
+        if libData.visible then
+            animateShow()
+        else
+            mainPanel.Visible = false
+            tabContainer.Visible = false
+            contentArea.Visible = false
+        end
+    end
+
+    closeBtn.MouseButton1Click:Connect(animateClose)
+    minimizeBtn.MouseButton1Click:Connect(animateMinimize)
+    floatBtn.MouseButton1Click:Connect(toggleGui)
+    UserInputService.InputBegan:Connect(function(i, gpe) if not gpe and i.KeyCode == Enum.KeyCode.K then toggleGui() end end)
+
+    -- Драг панели
+    local dDrag, dS, dI
+    header.InputBegan:Connect(function(i) 
+        if i.UserInputType == Enum.UserInputType.MouseButton1 and not libData.minimized and not libData.closing then 
+            dDrag = true 
+            dI = i.Position 
+            dS = mainPanel.Position 
+        end 
+    end)
+    UserInputService.InputChanged:Connect(function(i) 
+        if dDrag and i.UserInputType == Enum.UserInputType.MouseMovement then
+            local d = i.Position - dI 
+            mainPanel.Position = UDim2.new(dS.X.Scale, dS.X.Offset + d.X, dS.Y.Scale, dS.Y.Offset + d.Y)
+            savedPosition = mainPanel.Position
+        end 
+    end)
+    UserInputService.InputEnded:Connect(function(i) 
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then 
+            dDrag = false 
+        end 
+    end)
+
+    -- [[ CREATE TAB ]]
     function libData:CreateTab(name)
         local tabObj = {}
         local scroll = Instance.new("ScrollingFrame", contentArea)
@@ -400,6 +379,9 @@ function CryoLib:CreateWindow(hubName)
         local tabBgCorner = Instance.new("UICorner", tabBg)
         tabBgCorner.CornerRadius = UDim.new(0, 8)
 
+        -- Храним элементы таба для закрытия
+        tabObj.elements = {}
+
         btn.MouseButton1Click:Connect(function()
             for _, t in ipairs(libData.tabs) do
                 t.s.Visible = false
@@ -437,6 +419,7 @@ function CryoLib:CreateWindow(hubName)
             tabIndicator.Position = UDim2.new(0, 8, 0, btn.AbsolutePosition.Y - tabContainer.AbsolutePosition.Y)
         end
 
+        -- [[ TOGGLE (обновлённый с setState) ]]
         function tabObj:CreateToggle(txt, callback)
             local state = false
             local f = Instance.new("Frame", scroll)
@@ -485,15 +468,30 @@ function CryoLib:CreateWindow(hubName)
             b.Text = ""
             b.AutoButtonColor = false
             b.ZIndex = 14
-            
-            b.MouseButton1Click:Connect(function()
-                state = not state
-                TweenService:Create(bg, TweenInfo.new(0.25), {BackgroundColor3 = state and libData.accent or Color3.fromRGB(50, 50, 65)}):Play()
-                TweenService:Create(c, TweenInfo.new(0.25), {Position = state and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)}):Play()
+
+            -- Функция для принудительного сброса состояния
+            local function setState(newState)
+                state = newState
+                TweenService:Create(bg, TweenInfo.new(0.25), {
+                    BackgroundColor3 = state and libData.accent or Color3.fromRGB(50, 50, 65)
+                }):Play()
+                TweenService:Create(c, TweenInfo.new(0.25), {
+                    Position = state and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
+                }):Play()
                 callback(state)
+            end
+
+            b.MouseButton1Click:Connect(function()
+                setState(not state)
             end)
+
+            table.insert(tabObj.elements, {
+                type = "toggle",
+                setState = setState
+            })
         end
 
+        -- [[ SLIDER ]]
         function tabObj:CreateSlider(text, min, max, default, callback)
             local frame = Instance.new("Frame", scroll)
             frame.Size = UDim2.new(1, -4, 0, 68)
@@ -564,6 +562,7 @@ function CryoLib:CreateWindow(hubName)
             UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
         end
 
+        -- [[ BUTTON ]]
         function tabObj:CreateButton(txt, callback)
             local b = Instance.new("TextButton", scroll)
             b.Size = UDim2.new(1, -4, 0, 44)
@@ -588,6 +587,7 @@ function CryoLib:CreateWindow(hubName)
             end)
         end
         
+        -- [[ LABEL ]]
         function tabObj:CreateLabel(txt)
             local l = Instance.new("TextLabel", scroll)
             l.Size = UDim2.new(1, 0, 0, 28)
@@ -598,6 +598,160 @@ function CryoLib:CreateWindow(hubName)
             l.TextSize = 13
             l.TextXAlignment = Enum.TextXAlignment.Left
             l.ZIndex = 12
+        end
+
+        -- [[ MULTI-SELECT LIST (новый элемент) ]]
+        function tabObj:CreateMultiList(text, items, callback)
+            local selected = {}
+            local frame = Instance.new("Frame", scroll)
+            frame.Size = UDim2.new(1, -4, 0, 120)
+            frame.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
+            frame.BorderSizePixel = 0
+            frame.ZIndex = 11
+            
+            local frameCorner = Instance.new("UICorner", frame)
+            frameCorner.CornerRadius = UDim.new(0, 10)
+            
+            -- Заголовок
+            local title = Instance.new("TextLabel", frame)
+            title.Size = UDim2.new(1, -20, 0, 28)
+            title.Position = UDim2.new(0, 14, 0, 6)
+            title.BackgroundTransparency = 1
+            title.Text = text
+            title.Font = Enum.Font.GothamBold
+            title.TextSize = 14
+            title.TextColor3 = Color3.fromRGB(220, 220, 235)
+            title.TextXAlignment = Enum.TextXAlignment.Left
+            title.ZIndex = 12
+            
+            -- Контейнер для пунктов
+            local itemsFrame = Instance.new("Frame", frame)
+            itemsFrame.Size = UDim2.new(1, -20, 1, -40)
+            itemsFrame.Position = UDim2.new(0, 10, 0, 34)
+            itemsFrame.BackgroundTransparency = 1
+            itemsFrame.ZIndex = 12
+            
+            local itemsLayout = Instance.new("UIListLayout", itemsFrame)
+            itemsLayout.Padding = UDim.new(0, 6)
+            itemsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            
+            local itemElements = {}
+
+            for i, itemText in ipairs(items) do
+                local itemBtn = Instance.new("TextButton", itemsFrame)
+                itemBtn.Size = UDim2.new(1, 0, 0, 28)
+                itemBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
+                itemBtn.Text = "  " .. itemText
+                itemBtn.Font = Enum.Font.GothamBold
+                itemBtn.TextSize = 13
+                itemBtn.TextColor3 = Color3.fromRGB(180, 180, 200)
+                itemBtn.TextXAlignment = Enum.TextXAlignment.Left
+                itemBtn.AutoButtonColor = false
+                itemBtn.ZIndex = 13
+                
+                local itemCorner = Instance.new("UICorner", itemBtn)
+                itemCorner.CornerRadius = UDim.new(0, 6)
+                
+                -- Галочка
+                local check = Instance.new("Frame", itemBtn)
+                check.Size = UDim2.new(0, 18, 0, 18)
+                check.Position = UDim2.new(1, -26, 0.5, -9)
+                check.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+                check.BorderSizePixel = 0
+                check.ZIndex = 14
+                
+                local checkCorner = Instance.new("UICorner", check)
+                checkCorner.CornerRadius = UDim.new(0, 4)
+                
+                local checkMark = Instance.new("TextLabel", check)
+                checkMark.Size = UDim2.new(1, 0, 1, 0)
+                checkMark.BackgroundTransparency = 1
+                checkMark.Text = "✓"
+                checkMark.Font = Enum.Font.GothamBold
+                checkMark.TextSize = 14
+                checkMark.TextColor3 = Color3.fromRGB(255, 255, 255)
+                checkMark.Visible = false
+                checkMark.ZIndex = 15
+
+                itemBtn.MouseButton1Click:Connect(function()
+                    if selected[itemText] then
+                        -- Отключаем
+                        selected[itemText] = nil
+                        TweenService:Create(itemBtn, TweenInfo.new(0.15), {
+                            BackgroundColor3 = Color3.fromRGB(35, 35, 48),
+                            TextColor3 = Color3.fromRGB(180, 180, 200)
+                        }):Play()
+                        TweenService:Create(check, TweenInfo.new(0.15), {
+                            BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+                        }):Play()
+                        checkMark.Visible = false
+                    else
+                        -- Включаем
+                        selected[itemText] = true
+                        TweenService:Create(itemBtn, TweenInfo.new(0.15), {
+                            BackgroundColor3 = Color3.fromRGB(40, 55, 80),
+                            TextColor3 = Color3.fromRGB(255, 255, 255)
+                        }):Play()
+                        TweenService:Create(check, TweenInfo.new(0.15), {
+                            BackgroundColor3 = libData.accent
+                        }):Play()
+                        checkMark.Visible = true
+                    end
+                    
+                    -- Формируем массив выбранных
+                    local result = {}
+                    for k, _ in pairs(selected) do
+                        table.insert(result, k)
+                    end
+                    callback(result)
+                end)
+                
+                itemBtn.MouseEnter:Connect(function()
+                    if not selected[itemText] then
+                        TweenService:Create(itemBtn, TweenInfo.new(0.15), {
+                            BackgroundColor3 = Color3.fromRGB(42, 42, 55)
+                        }):Play()
+                    end
+                end)
+                itemBtn.MouseLeave:Connect(function()
+                    if not selected[itemText] then
+                        TweenService:Create(itemBtn, TweenInfo.new(0.15), {
+                            BackgroundColor3 = Color3.fromRGB(35, 35, 48)
+                        }):Play()
+                    end
+                end)
+                
+                table.insert(itemElements, {btn = itemBtn, text = itemText})
+            end
+            
+            -- Авторазмер фрейма под количество элементов
+            local totalHeight = 120 + (#items * 34)
+            frame.Size = UDim2.new(1, -4, 0, math.min(totalHeight, 300))
+            
+            return {
+                GetSelected = function()
+                    local result = {}
+                    for k, _ in pairs(selected) do
+                        table.insert(result, k)
+                    end
+                    return result
+                end,
+                SetSelected = function(itemsToSelect)
+                    selected = {}
+                    for _, v in ipairs(itemsToSelect) do
+                        selected[v] = true
+                    end
+                    -- Обновляем визуал (упрощённо)
+                    for _, elem in ipairs(itemElements) do
+                        local isSel = selected[elem.text] ~= nil
+                        elem.btn.BackgroundColor3 = isSel and Color3.fromRGB(40, 55, 80) or Color3.fromRGB(35, 35, 48)
+                        elem.btn.TextColor3 = isSel and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 200)
+                        elem.btn:FindFirstChild("Frame").BackgroundColor3 = isSel and libData.accent or Color3.fromRGB(50, 50, 65)
+                        elem.btn:FindFirstChild("Frame"):FindFirstChild("TextLabel").Visible = isSel
+                    end
+                    callback(itemsToSelect)
+                end
+            }
         end
         
         return tabObj
