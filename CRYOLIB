@@ -1,5 +1,13 @@
 local CryoLib = {}
 
+-- Функция для поиска в таблице (добавляем в начало)
+local function tableFind(t, value)
+    for i, v in ipairs(t) do
+        if v == value then return i end
+    end
+    return nil
+end
+
 function CryoLib:CreateWindow(hubName)
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -126,7 +134,7 @@ function CryoLib:CreateWindow(hubName)
     local savedSize = UDim2.new(0, 440, 0, 540)
     local minimizedSize = UDim2.new(0, 440, 0, 54)
 
-    -- [[ CONTAINERS — создаём ДО функций анимации ]]
+    -- [[ CONTAINERS ]]
     local tabContainer = Instance.new("Frame", mainPanel)
     tabContainer.Name = "TabContainer"
     tabContainer.Size = UDim2.new(0, 110, 1, -54)
@@ -669,7 +677,7 @@ function CryoLib:CreateWindow(hubName)
             l.ZIndex = 12
         end
 
-        -- [[ DROPDOWN — renders list in overlay ABOVE everything, supports multi-select ]]
+        -- [[ DROPDOWN — ИСПРАВЛЕННАЯ ВЕРСИЯ ]]
         function tabObj:CreateDropdown(text, options, multiSelect, callback)
             local selected = multiSelect and {} or (options[1] or "")
             local open = false
@@ -782,7 +790,7 @@ function CryoLib:CreateWindow(hubName)
 
                 local isSelected = false
                 if multiSelect then
-                    isSelected = table.find(selected, opt) ~= nil
+                    isSelected = tableFind(selected, opt) ~= nil
                 else
                     isSelected = (selected == opt)
                 end
@@ -826,7 +834,7 @@ function CryoLib:CreateWindow(hubName)
 
                 itemBtn.MouseButton1Click:Connect(function()
                     if multiSelect then
-                        local found = table.find(selected, opt)
+                        local found = tableFind(selected, opt)
                         if found then
                             table.remove(selected, found)
                             indicator.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
@@ -963,7 +971,7 @@ function CryoLib:CreateWindow(hubName)
                     for i, btnData in ipairs(itemButtons) do
                         local isSel = false
                         if multiSelect then
-                            isSel = table.find(selected, options[i]) ~= nil
+                            isSel = tableFind(selected, options[i]) ~= nil
                         else
                             isSel = (selected == options[i])
                         end
