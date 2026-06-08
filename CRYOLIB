@@ -1,6 +1,6 @@
 local CryoLib = {}
 
--- Функция для поиска в таблице (добавляем в начало)
+-- Функция для поиска в таблице
 local function tableFind(t, value)
     for i, v in ipairs(t) do
         if v == value then return i end
@@ -677,12 +677,13 @@ function CryoLib:CreateWindow(hubName)
             l.ZIndex = 12
         end
 
-        -- [[ DROPDOWN — ИСПРАВЛЕННАЯ ВЕРСИЯ ]]
+        -- [[ DROPDOWN — С ГАЛОЧКАМИ В СПИСКЕ ]]
         function tabObj:CreateDropdown(text, options, multiSelect, callback)
             local selected = multiSelect and {} or (options[1] or "")
             local open = false
+            local itemData = {} -- храним данные о каждой опции
 
-            -- Main button frame (inside scroll)
+            -- Main button frame
             local f = Instance.new("Frame", scroll)
             f.Size = UDim2.new(1, -4, 0, 48)
             f.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
@@ -721,7 +722,7 @@ function CryoLib:CreateWindow(hubName)
             clickBtn.ZIndex = 14
             clickBtn.AutoButtonColor = false
 
-            -- LIST FRAME — rendered in overlay
+            -- LIST FRAME
             local listFrame = Instance.new("Frame")
             listFrame.Name = "DropdownList_" .. text
             listFrame.Size = UDim2.new(0, 0, 0, 0)
@@ -759,8 +760,6 @@ function CryoLib:CreateWindow(hubName)
             listPadding.PaddingTop = UDim.new(0, 2)
             listPadding.PaddingBottom = UDim.new(0, 2)
 
-            local itemButtons = {}
-
             local function updateLabel()
                 if multiSelect then
                     local count = #selected
@@ -773,6 +772,40 @@ function CryoLib:CreateWindow(hubName)
                     end
                 else
                     l.Text = text .. ": " .. tostring(selected)
+                end
+            end
+
+            local function updateAllItems()
+                for _, data in ipairs(itemData) do
+                    local isSelected = false
+                    if multiSelect then
+                        isSelected = tableFind(selected, data.opt) ~= nil
+                    else
+                        isSelected = (selected == data.opt)
+                    end
+                    
+                    data.indicator.BackgroundColor3 = isSelected and libData.accent or Color3.fromRGB(50, 50, 65)
+                    
+                    if multiSelect and isSelected then
+                        local hasCheck = false
+                        for _, child in ipairs(data.indicator:GetChildren()) do
+                            if child:IsA("TextLabel") then hasCheck = true end
+                        end
+                        if not hasCheck then
+                            local check = Instance.new("TextLabel", data.indicator)
+                            check.Size = UDim2.new(1, 0, 1, 0)
+                            check.BackgroundTransparency = 1
+                            check.Text = "✓"
+                            check.Font = Enum.Font.GothamBold
+                            check.TextSize = 10
+                            check.TextColor3 = Color3.fromRGB(255, 255, 255)
+                            check.ZIndex = 1005
+                        end
+                    elseif multiSelect and not isSelected then
+                        for _, child in ipairs(data.indicator:GetChildren()) do
+                            if child:IsA("TextLabel") then child:Destroy() end
+                        end
+                    end
                 end
             end
 
@@ -796,8 +829,8 @@ function CryoLib:CreateWindow(hubName)
                 end
 
                 local indicator = Instance.new("Frame", itemBtn)
-                indicator.Size = UDim2.new(0, 14, 0, 14)
-                indicator.Position = UDim2.new(1, -22, 0.5, -7)
+                indicator.Size = UDim2.new(0, 16, 0, 16)
+                indicator.Position = UDim2.new(1, -24, 0.5, -8)
                 indicator.BackgroundColor3 = isSelected and libData.accent or Color3.fromRGB(50, 50, 65)
                 indicator.BorderSizePixel = 0
                 indicator.ZIndex = 1004
@@ -837,36 +870,25 @@ function CryoLib:CreateWindow(hubName)
                         local found = tableFind(selected, opt)
                         if found then
                             table.remove(selected, found)
-                            indicator.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
-                            for _, child in ipairs(indicator:GetChildren()) do
-                                if child:IsA("TextLabel") then child:Destroy() end
-                            end
                         else
                             table.insert(selected, opt)
-                            indicator.BackgroundColor3 = libData.accent
-                            local check = Instance.new("TextLabel", indicator)
-                            check.Size = UDim2.new(1, 0, 1, 0)
-                            check.BackgroundTransparency = 1
-                            check.Text = "✓"
-                            check.Font = Enum.Font.GothamBold
-                            check.TextSize = 10
-                            check.TextColor3 = Color3.fromRGB(255, 255, 255)
-                            check.ZIndex = 1005
                         end
+                        updateAllItems()
                         callback(selected)
                     else
                         selected = opt
-                        for _, btnData in ipairs(itemButtons) do
-                            btnData.indicator.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
-                        end
-                        indicator.BackgroundColor3 = libData.accent
+                        updateAllItems()
                         callback(selected)
                         closeDropdown()
                     end
                     updateLabel()
                 end)
 
-                table.insert(itemButtons, {btn = itemBtn, indicator = indicator})
+                table.insert(itemData, {
+                    btn = itemBtn,
+                    indicator = indicator,
+                    opt = opt
+                })
             end
 
             for i, opt in ipairs(options) do
@@ -888,6 +910,7 @@ function CryoLib:CreateWindow(hubName)
                 arrow.Text = "▲"
                 positionList()
                 listFrame.Visible = true
+                updateAllItems()
 
                 TweenService:Create(listFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                     Size = UDim2.new(0, listFrame.Size.X.Offset, 0, maxHeight)
@@ -928,11 +951,8 @@ function CryoLib:CreateWindow(hubName)
                 if open then positionList() end
             end)
             mainPanel:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-                if open then 
-                    positionList()
-                end
+                if open then positionList() end
             end)
-
             mainPanel:GetPropertyChangedSignal("Visible"):Connect(function()
                 if not mainPanel.Visible and open then
                     closeDropdown()
@@ -947,7 +967,6 @@ function CryoLib:CreateWindow(hubName)
                 close = closeDropdown
             }
 
-            -- Proxy for open state
             local mt = {
                 __index = function(t, k)
                     if k == "open" then return open end
@@ -968,35 +987,7 @@ function CryoLib:CreateWindow(hubName)
                         selected = val
                     end
                     updateLabel()
-                    for i, btnData in ipairs(itemButtons) do
-                        local isSel = false
-                        if multiSelect then
-                            isSel = tableFind(selected, options[i]) ~= nil
-                        else
-                            isSel = (selected == options[i])
-                        end
-                        btnData.indicator.BackgroundColor3 = isSel and libData.accent or Color3.fromRGB(50, 50, 65)
-                        if multiSelect and isSel then
-                            local hasCheck = false
-                            for _, child in ipairs(btnData.indicator:GetChildren()) do
-                                if child:IsA("TextLabel") then hasCheck = true end
-                            end
-                            if not hasCheck then
-                                local check = Instance.new("TextLabel", btnData.indicator)
-                                check.Size = UDim2.new(1, 0, 1, 0)
-                                check.BackgroundTransparency = 1
-                                check.Text = "✓"
-                                check.Font = Enum.Font.GothamBold
-                                check.TextSize = 10
-                                check.TextColor3 = Color3.fromRGB(255, 255, 255)
-                                check.ZIndex = 1005
-                            end
-                        elseif multiSelect and not isSel then
-                            for _, child in ipairs(btnData.indicator:GetChildren()) do
-                                if child:IsA("TextLabel") then child:Destroy() end
-                            end
-                        end
-                    end
+                    updateAllItems()
                 end
             }
         end
