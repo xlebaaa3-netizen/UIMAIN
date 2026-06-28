@@ -299,7 +299,7 @@ function CryoLib:CreateWindow(title)
     closeButton.Size = UDim2.new(0, 30, 0, 30)
     closeButton.Position = UDim2.new(1, -40, 0, 12)
     closeButton.BackgroundTransparency = 1
-    closeButton.Text = "r"
+    closeButton.Text = "x"
     closeButton.Font = Enum.Font.GothamBlack
     closeButton.TextSize = 24
     closeButton.TextColor3 = Color3.fromRGB(150, 150, 150)
