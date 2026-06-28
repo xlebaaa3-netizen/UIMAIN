@@ -57,7 +57,7 @@ function CryoLib:CreateWindow(hubName)
 
     -- MAIN GUI
     local gui = Instance.new("ScreenGui")
-    gui.Name = "CryoLib_Official_Final"
+    gui.Name = "CryoLib"
     gui.ResetOnSpawn = false
     gui.DisplayOrder = 999
     gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
@@ -200,15 +200,11 @@ function CryoLib:CreateWindow(hubName)
     local header = Instance.new("Frame", mainPanel)
     header.Size = UDim2.new(1, 0, 0, 54)
     header.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
-    header.BorderSizePixel = 0
-    header.ZIndex = 11
-    local headerCorner = Instance.new("UICorner", header)
-    headerCorner.CornerRadius = UDim.new(0, 16)
+    header.BorderSizePixel = 0; header.ZIndex = 11
+    local headerCorner = Instance.new("UICorner", header); headerCorner.CornerRadius = UDim.new(0, 16)
     local headerFix = Instance.new("Frame", header)
-    headerFix.Size = UDim2.new(1, 0, 0.5, 0)
-    headerFix.Position = UDim2.new(0, 0, 0.5, 0)
-    headerFix.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
-    headerFix.BorderSizePixel = 0; headerFix.ZIndex = 11
+    headerFix.Size = UDim2.new(1, 0, 0.5, 0); headerFix.Position = UDim2.new(0, 0, 0.5, 0)
+    headerFix.BackgroundColor3 = Color3.fromRGB(22, 22, 30); headerFix.BorderSizePixel = 0; headerFix.ZIndex = 11
 
     local headerLogo = Instance.new("ImageLabel")
     headerLogo.Size = UDim2.new(0, 30, 0, 30); headerLogo.Position = UDim2.new(0, 16, 0, 12)
@@ -222,7 +218,6 @@ function CryoLib:CreateWindow(hubName)
     headerTitle.TextColor3 = Color3.fromRGB(255, 255, 255); headerTitle.TextXAlignment = Enum.TextXAlignment.Left
     headerTitle.Parent = header; headerTitle.ZIndex = 12
 
-    -- CLOSE
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0, 30, 0, 30); closeBtn.Position = UDim2.new(1, -40, 0, 12)
     closeBtn.BackgroundTransparency = 1; closeBtn.Text = "×"
@@ -231,7 +226,6 @@ function CryoLib:CreateWindow(hubName)
     closeBtn.AutoButtonColor = false; closeBtn.ZIndex = 12
     closeBtn.MouseButton1Click:Connect(animateClose)
 
-    -- MINIMIZE
     local minimizeBtn = Instance.new("TextButton")
     minimizeBtn.Size = UDim2.new(0, 30, 0, 30); minimizeBtn.Position = UDim2.new(1, -72, 0, 12)
     minimizeBtn.BackgroundTransparency = 1; minimizeBtn.Text = "−"
@@ -240,19 +234,16 @@ function CryoLib:CreateWindow(hubName)
     minimizeBtn.AutoButtonColor = false; minimizeBtn.ZIndex = 12
     minimizeBtn.MouseButton1Click:Connect(animateMinimize)
 
-    -- DRAG
     local dDrag, dS, dI
     header.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 and not libData.closing then dDrag = true; dI = i.Position; dS = mainPanel.Position end end)
     UserInputService.InputChanged:Connect(function(i) if dDrag and i.UserInputType == Enum.UserInputType.MouseMovement then local d = i.Position - dI; mainPanel.Position = UDim2.new(dS.X.Scale, dS.X.Offset + d.X, dS.Y.Scale, dS.Y.Offset + d.Y); savedPosition = mainPanel.Position end end)
     UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dDrag = false end end)
 
-    -- TAB INDICATOR
     local tabIndicator = Instance.new("Frame", tabContainer)
     tabIndicator.Size = UDim2.new(0, 3, 0, 0); tabIndicator.Position = UDim2.new(0, 8, 0, 0)
     tabIndicator.BackgroundColor3 = libData.accent; tabIndicator.BorderSizePixel = 0
     tabIndicator.Visible = false; tabIndicator.ZIndex = 12
 
-    -- CLICK OUTSIDE DROPDOWNS
     UserInputService.InputBegan:Connect(function(input, gpe)
         if gpe then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -305,7 +296,7 @@ function CryoLib:CreateWindow(hubName)
             tabIndicator.Position = UDim2.new(0, 8, 0, btn.AbsolutePosition.Y - tabContainer.AbsolutePosition.Y)
         end
 
-        -- TOGGLE
+        -- [[ TOGGLE ]]
         function tabObj:CreateToggle(txt, callback)
             local state = false
             local f = Instance.new("Frame", scroll); f.Size = UDim2.new(1, -4, 0, 48); f.BackgroundColor3 = Color3.fromRGB(28, 28, 36); f.BorderSizePixel = 0; f.ZIndex = 11
@@ -327,7 +318,7 @@ function CryoLib:CreateWindow(hubName)
             end)
         end
 
-        -- SLIDER
+        -- [[ SLIDER ]]
         function tabObj:CreateSlider(text, min, max, default, callback)
             local f = Instance.new("Frame", scroll); f.Size = UDim2.new(1, -4, 0, 68); f.BackgroundColor3 = Color3.fromRGB(28, 28, 36); f.BorderSizePixel = 0; f.ZIndex = 11
             Instance.new("UICorner", f).CornerRadius = UDim.new(0, 10)
@@ -350,7 +341,7 @@ function CryoLib:CreateWindow(hubName)
             UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
         end
 
-        -- BUTTON
+        -- [[ BUTTON ]]
         function tabObj:CreateButton(txt, callback)
             local b = Instance.new("TextButton", scroll); b.Size = UDim2.new(1, -4, 0, 44); b.BackgroundColor3 = libData.accent; b.Text = txt
             b.Font = Enum.Font.GothamBlack; b.TextColor3 = Color3.fromRGB(255, 255, 255); b.TextSize = 14; b.AutoButtonColor = false; b.ZIndex = 12
@@ -358,71 +349,151 @@ function CryoLib:CreateWindow(hubName)
             b.MouseButton1Click:Connect(callback)
         end
 
-        -- LABEL
+        -- [[ LABEL ]]
         function tabObj:CreateLabel(txt)
             local l = Instance.new("TextLabel", scroll); l.Size = UDim2.new(1, 0, 0, 28); l.Text = txt
             l.TextColor3 = libData.accent; l.Font = Enum.Font.GothamBlack; l.BackgroundTransparency = 1; l.TextSize = 13; l.TextXAlignment = Enum.TextXAlignment.Left; l.ZIndex = 12
         end
 
-        -- KEYBIND
+        -- [[ KEYBIND — ИСПРАВЛЕННЫЙ: включает/выключает функцию ]]
         function tabObj:CreateKeybind(text, defaultKey, callback)
+            local state = false
             local key = defaultKey or "None"
             local binding = false
+            
             local f = Instance.new("Frame", scroll); f.Size = UDim2.new(1, -4, 0, 48); f.BackgroundColor3 = Color3.fromRGB(28, 28, 36); f.BorderSizePixel = 0; f.ZIndex = 11
             Instance.new("UICorner", f).CornerRadius = UDim.new(0, 10)
+            
             local l = Instance.new("TextLabel", f); l.Size = UDim2.new(0, 120, 1, 0); l.Position = UDim2.new(0, 14, 0, 0); l.Text = text
             l.Font = Enum.Font.GothamBold; l.TextColor3 = Color3.fromRGB(220, 220, 235); l.BackgroundTransparency = 1; l.TextXAlignment = Enum.TextXAlignment.Left; l.TextSize = 14; l.ZIndex = 12
-            local keyBtn = Instance.new("TextButton", f); keyBtn.Size = UDim2.new(0, 60, 0, 26); keyBtn.Position = UDim2.new(1, -74, 0.5, -13)
-            keyBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55); keyBtn.Text = key; keyBtn.Font = Enum.Font.GothamBold; keyBtn.TextSize = 12
+            
+            local keyBtn = Instance.new("TextButton", f); keyBtn.Size = UDim2.new(0, 50, 0, 26); keyBtn.Position = UDim2.new(1, -64, 0.5, -13)
+            keyBtn.BackgroundColor3 = state and libData.accent or Color3.fromRGB(40, 40, 55); keyBtn.Text = key; keyBtn.Font = Enum.Font.GothamBold; keyBtn.TextSize = 11
             keyBtn.TextColor3 = Color3.fromRGB(255, 255, 255); keyBtn.AutoButtonColor = false; keyBtn.ZIndex = 12
             Instance.new("UICorner", keyBtn).CornerRadius = UDim.new(0, 6)
-            keyBtn.MouseButton1Click:Connect(function() binding = true; keyBtn.Text = "..."; keyBtn.BackgroundColor3 = libData.accent end)
-            local kbConn = UserInputService.InputBegan:Connect(function(i, gpe)
-                if not binding or gpe then return end
-                if i.KeyCode == Enum.KeyCode.Escape then binding = false; keyBtn.Text = key; keyBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55); return end
-                key = i.KeyCode.Name; keyBtn.Text = key; keyBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55); binding = false; callback(key)
-            end)
-            table.insert(libData.keybinds, kbConn)
-            return {GetKey = function() return key end, SetKey = function(k) key = k; keyBtn.Text = k end}
-        end
-
-        -- COLOR PICKER
-        function tabObj:CreateColorPicker(text, defaultColor, callback)
-            local color = defaultColor or Color3.fromRGB(255, 0, 0)
-            local expanded = false
-            local f = Instance.new("Frame", scroll); f.Size = UDim2.new(1, -4, 0, 48); f.BackgroundColor3 = Color3.fromRGB(28, 28, 36); f.BorderSizePixel = 0; f.ZIndex = 11
-            Instance.new("UICorner", f).CornerRadius = UDim.new(0, 10)
-            local l = Instance.new("TextLabel", f); l.Size = UDim2.new(0, 100, 1, 0); l.Position = UDim2.new(0, 14, 0, 0); l.Text = text
-            l.Font = Enum.Font.GothamBold; l.TextColor3 = Color3.fromRGB(220, 220, 235); l.BackgroundTransparency = 1; l.TextXAlignment = Enum.TextXAlignment.Left; l.TextSize = 14; l.ZIndex = 12
-            local prev = Instance.new("Frame", f); prev.Size = UDim2.new(0, 30, 0, 30); prev.Position = UDim2.new(1, -44, 0.5, -15); prev.BackgroundColor3 = color; prev.BorderSizePixel = 0; prev.ZIndex = 12
-            Instance.new("UICorner", prev).CornerRadius = UDim.new(0, 6)
             
-            -- Color expansion
-            local colors = {
-                Color3.fromRGB(255, 0, 0), Color3.fromRGB(255, 128, 0), Color3.fromRGB(255, 255, 0),
-                Color3.fromRGB(0, 255, 0), Color3.fromRGB(0, 128, 255), Color3.fromRGB(128, 0, 255),
-                Color3.fromRGB(255, 0, 255), Color3.fromRGB(255, 255, 255), Color3.fromRGB(0, 0, 0)
-            }
-            local colorGrid = Instance.new("Frame", f); colorGrid.Size = UDim2.new(1, -28, 0, 0); colorGrid.Position = UDim2.new(0, 14, 1, 0); colorGrid.BackgroundTransparency = 1; colorGrid.ZIndex = 13
-            local gridLayout = Instance.new("UIGridLayout", colorGrid); gridLayout.CellSize = UDim2.new(0, 24, 0, 24); gridLayout.CellPadding = UDim2.new(0, 3, 0, 3); gridLayout.FillDirection = Enum.FillDirection.Horizontal; gridLayout.SortOrder = Enum.SortOrder.LayoutOrder; gridLayout.StartCorner = Enum.StartCorner.TopLeft
-            
-            for _, c in ipairs(colors) do
-                local cell = Instance.new("TextButton", colorGrid); cell.Size = UDim2.new(0, 24, 0, 24); cell.BackgroundColor3 = c; cell.Text = ""; cell.AutoButtonColor = false; cell.ZIndex = 14
-                Instance.new("UICorner", cell).CornerRadius = UDim.new(0, 4)
-                if c == Color3.fromRGB(0, 0, 0) then cell.BorderSizePixel = 1; cell.BorderColor3 = Color3.fromRGB(100, 100, 100) end
-                cell.MouseButton1Click:Connect(function() color = c; prev.BackgroundColor3 = c; callback(c); expanded = false; f.Size = UDim2.new(1, -4, 0, 48); colorGrid.Size = UDim2.new(1, -28, 0, 0) end)
+            local function updateVisual()
+                keyBtn.BackgroundColor3 = state and libData.accent or Color3.fromRGB(40, 40, 55)
             end
             
-            local toggleBtn = Instance.new("TextButton", f); toggleBtn.Size = UDim2.new(1, 0, 1, 0); toggleBtn.BackgroundTransparency = 1; toggleBtn.Text = ""; toggleBtn.ZIndex = 15
-            toggleBtn.MouseButton1Click:Connect(function()
-                expanded = not expanded
-                if expanded then f.Size = UDim2.new(1, -4, 0, 80); colorGrid.Size = UDim2.new(1, -28, 0, 28) else f.Size = UDim2.new(1, -4, 0, 48); colorGrid.Size = UDim2.new(1, -28, 0, 0) end
+            -- Горячая клавиша (вкл/выкл)
+            local kbConn = UserInputService.InputBegan:Connect(function(i, gpe)
+                if gpe or binding then return end
+                if i.KeyCode == Enum.KeyCode[key] then
+                    state = not state
+                    updateVisual()
+                    callback(state)
+                end
             end)
             
-            return {GetColor = function() return color end, SetColor = function(c) color = c; prev.BackgroundColor3 = c end}
+            -- Настройка клавиши (клик)
+            keyBtn.MouseButton1Click:Connect(function()
+                binding = true
+                keyBtn.Text = "..."
+                keyBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+            end)
+            
+            -- Перехват для смены клавиши
+            local bindConn = UserInputService.InputBegan:Connect(function(i, gpe)
+                if not binding or gpe then return end
+                if i.KeyCode == Enum.KeyCode.Escape then
+                    binding = false
+                    keyBtn.Text = key
+                    updateVisual()
+                    return
+                end
+                key = i.KeyCode.Name
+                keyBtn.Text = key
+                binding = false
+                updateVisual()
+                callback(state) -- не меняем состояние, только обновляем клавишу
+            end)
+            
+            table.insert(libData.keybinds, kbConn)
+            table.insert(libData.keybinds, bindConn)
+            
+            return {
+                GetKey = function() return key end,
+                SetKey = function(k) key = k; keyBtn.Text = k end,
+                GetState = function() return state end,
+                SetState = function(s) state = s; updateVisual() end
+            }
         end
 
-        -- DROPDOWN
+        -- [[ COLOR PICKER — ИСПРАВЛЕННЫЙ: RGB слайдеры ]]
+        function tabObj:CreateColorPicker(text, defaultColor, callback)
+            local r, g, b = math.floor(defaultColor.R * 255), math.floor(defaultColor.G * 255), math.floor(defaultColor.B * 255)
+            local expanded = false
+            
+            local f = Instance.new("Frame", scroll); f.Size = UDim2.new(1, -4, 0, 48); f.BackgroundColor3 = Color3.fromRGB(28, 28, 36); f.BorderSizePixel = 0; f.ZIndex = 11
+            Instance.new("UICorner", f).CornerRadius = UDim.new(0, 10)
+            
+            local l = Instance.new("TextLabel", f); l.Size = UDim2.new(0, 100, 1, 0); l.Position = UDim2.new(0, 14, 0, 0); l.Text = text
+            l.Font = Enum.Font.GothamBold; l.TextColor3 = Color3.fromRGB(220, 220, 235); l.BackgroundTransparency = 1; l.TextXAlignment = Enum.TextXAlignment.Left; l.TextSize = 14; l.ZIndex = 12
+            
+            local prev = Instance.new("Frame", f); prev.Size = UDim2.new(0, 30, 0, 30); prev.Position = UDim2.new(1, -44, 0.5, -15); prev.BackgroundColor3 = defaultColor; prev.BorderSizePixel = 0; prev.ZIndex = 12
+            Instance.new("UICorner", prev).CornerRadius = UDim.new(0, 6)
+            
+            -- RGB слайдеры (скрыты пока не раскрыт)
+            local function createRGBSlider(yPos, color, initial)
+                local track = Instance.new("Frame", f); track.Size = UDim2.new(1, -28, 0, 8); track.Position = UDim2.new(0, 14, 0, yPos); track.BackgroundColor3 = Color3.fromRGB(45, 45, 60); track.BorderSizePixel = 0; track.ZIndex = 13
+                Instance.new("UICorner", track).CornerRadius = UDim.new(1, 0)
+                local fill = Instance.new("Frame", track); fill.Size = UDim2.new(initial/255, 0, 1, 0); fill.BackgroundColor3 = color; fill.BorderSizePixel = 0; fill.ZIndex = 14
+                Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+                local lbl = Instance.new("TextLabel", track); lbl.Size = UDim2.new(1, 0, 0, 14); lbl.Position = UDim2.new(0, 0, 0, 10); lbl.BackgroundTransparency = 1; lbl.Text = initial; lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 9; lbl.TextColor3 = Color3.fromRGB(200,200,200); lbl.ZIndex = 14
+                
+                local dragging = false
+                local function update()
+                    local m = math.clamp((UserInputService:GetMouseLocation().X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+                    local val = math.floor(m * 255)
+                    fill.Size = UDim2.new(m, 0, 1, 0); lbl.Text = val
+                    return val
+                end
+                track.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end end)
+                UserInputService.InputChanged:Connect(function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+                    if color == Color3.fromRGB(255,0,0) then r = update()
+                    elseif color == Color3.fromRGB(0,255,0) then g = update()
+                    else b = update() end
+                    prev.BackgroundColor3 = Color3.fromRGB(r/255, g/255, b/255)
+                    callback(Color3.fromRGB(r/255, g/255, b/255))
+                end end)
+                UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+                return {track = track, fill = fill, lbl = lbl}
+            end
+            
+            local rSlider = createRGBSlider(48, Color3.fromRGB(255,0,0), r)
+            local gSlider = createRGBSlider(64, Color3.fromRGB(0,255,0), g)
+            local bSlider = createRGBSlider(80, Color3.fromRGB(0,0,255), b)
+            
+            -- Скрываем слайдеры
+            for _, s in ipairs({rSlider, gSlider, bSlider}) do
+                s.track.Visible = false; s.fill.Visible = false; s.lbl.Visible = false
+            end
+            
+            local toggleBtn = Instance.new("TextButton", f); toggleBtn.Size = UDim2.new(1, 0, 1, 0); toggleBtn.BackgroundTransparency = 1; toggleBtn.Text = ""; toggleBtn.ZIndex = 15; toggleBtn.AutoButtonColor = false
+            
+            toggleBtn.MouseButton1Click:Connect(function()
+                expanded = not expanded
+                if expanded then
+                    f.Size = UDim2.new(1, -4, 0, 105)
+                    for _, s in ipairs({rSlider, gSlider, bSlider}) do
+                        s.track.Visible = true; s.fill.Visible = true; s.lbl.Visible = true
+                    end
+                else
+                    f.Size = UDim2.new(1, -4, 0, 48)
+                    for _, s in ipairs({rSlider, gSlider, bSlider}) do
+                        s.track.Visible = false; s.fill.Visible = false; s.lbl.Visible = false
+                    end
+                end
+            end)
+            
+            return {
+                GetColor = function() return Color3.fromRGB(r/255, g/255, b/255) end,
+                SetColor = function(c) r = math.floor(c.R*255); g = math.floor(c.G*255); b = math.floor(c.B*255); prev.BackgroundColor3 = c end
+            }
+        end
+
+        -- [[ DROPDOWN ]]
         function tabObj:CreateDropdown(text, options, multiSelect, callback)
             local selected = multiSelect and {} or (options[1] or "")
             local open = false; local itemData = {}
