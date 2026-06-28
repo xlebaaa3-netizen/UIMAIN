@@ -1,3 +1,7 @@
+-- ═══════════════════════════════════════════════
+-- CRYOLIB v2 — Fixed UI Library
+-- ═══════════════════════════════════════════════
+
 local CryoLib = {}
 
 local function tableFind(t, value)
@@ -355,58 +359,50 @@ function CryoLib:CreateWindow(hubName)
             l.TextColor3 = libData.accent; l.Font = Enum.Font.GothamBlack; l.BackgroundTransparency = 1; l.TextSize = 13; l.TextXAlignment = Enum.TextXAlignment.Left; l.ZIndex = 12
         end
 
-        -- [[ KEYBIND — ИСПРАВЛЕННЫЙ: включает/выключает функцию ]]
+        -- [[ KEYBIND — ИСПРАВЛЕННЫЙ: настраиваемая клавиша + выполнение функции ]]
         function tabObj:CreateKeybind(text, defaultKey, callback)
-            local state = false
             local key = defaultKey or "None"
             local binding = false
             
             local f = Instance.new("Frame", scroll); f.Size = UDim2.new(1, -4, 0, 48); f.BackgroundColor3 = Color3.fromRGB(28, 28, 36); f.BorderSizePixel = 0; f.ZIndex = 11
             Instance.new("UICorner", f).CornerRadius = UDim.new(0, 10)
             
-            local l = Instance.new("TextLabel", f); l.Size = UDim2.new(0, 120, 1, 0); l.Position = UDim2.new(0, 14, 0, 0); l.Text = text
+            local l = Instance.new("TextLabel", f); l.Size = UDim2.new(0, 160, 1, 0); l.Position = UDim2.new(0, 14, 0, 0); l.Text = text
             l.Font = Enum.Font.GothamBold; l.TextColor3 = Color3.fromRGB(220, 220, 235); l.BackgroundTransparency = 1; l.TextXAlignment = Enum.TextXAlignment.Left; l.TextSize = 14; l.ZIndex = 12
             
-            local keyBtn = Instance.new("TextButton", f); keyBtn.Size = UDim2.new(0, 50, 0, 26); keyBtn.Position = UDim2.new(1, -64, 0.5, -13)
-            keyBtn.BackgroundColor3 = state and libData.accent or Color3.fromRGB(40, 40, 55); keyBtn.Text = key; keyBtn.Font = Enum.Font.GothamBold; keyBtn.TextSize = 11
+            local keyBtn = Instance.new("TextButton", f); keyBtn.Size = UDim2.new(0, 60, 0, 28); keyBtn.Position = UDim2.new(1, -76, 0.5, -14)
+            keyBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55); keyBtn.Text = key; keyBtn.Font = Enum.Font.GothamBold; keyBtn.TextSize = 11
             keyBtn.TextColor3 = Color3.fromRGB(255, 255, 255); keyBtn.AutoButtonColor = false; keyBtn.ZIndex = 12
             Instance.new("UICorner", keyBtn).CornerRadius = UDim.new(0, 6)
             
-            local function updateVisual()
-                keyBtn.BackgroundColor3 = state and libData.accent or Color3.fromRGB(40, 40, 55)
-            end
-            
-            -- Горячая клавиша (вкл/выкл)
+            -- Горячая клавиша — выполняет callback при нажатии
             local kbConn = UserInputService.InputBegan:Connect(function(i, gpe)
                 if gpe or binding then return end
                 if i.KeyCode == Enum.KeyCode[key] then
-                    state = not state
-                    updateVisual()
-                    callback(state)
+                    callback(key) -- выполняем функцию с текущей клавишей
                 end
             end)
             
-            -- Настройка клавиши (клик)
+            -- Настройка клавиши (клик по кнопке)
             keyBtn.MouseButton1Click:Connect(function()
                 binding = true
                 keyBtn.Text = "..."
                 keyBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
             end)
             
-            -- Перехват для смены клавиши
+            -- Перехват новой клавиши
             local bindConn = UserInputService.InputBegan:Connect(function(i, gpe)
                 if not binding or gpe then return end
                 if i.KeyCode == Enum.KeyCode.Escape then
                     binding = false
                     keyBtn.Text = key
-                    updateVisual()
+                    keyBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
                     return
                 end
                 key = i.KeyCode.Name
                 keyBtn.Text = key
                 binding = false
-                updateVisual()
-                callback(state) -- не меняем состояние, только обновляем клавишу
+                keyBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
             end)
             
             table.insert(libData.keybinds, kbConn)
@@ -414,82 +410,99 @@ function CryoLib:CreateWindow(hubName)
             
             return {
                 GetKey = function() return key end,
-                SetKey = function(k) key = k; keyBtn.Text = k end,
-                GetState = function() return state end,
-                SetState = function(s) state = s; updateVisual() end
+                SetKey = function(k) key = k; keyBtn.Text = k end
             }
         end
 
-        -- [[ COLOR PICKER — ИСПРАВЛЕННЫЙ: RGB слайдеры ]]
+        -- [[ COLOR PICKER — КРАСИВЫЙ: палитра + RGB слайдеры + HEX ]]
         function tabObj:CreateColorPicker(text, defaultColor, callback)
-            local r, g, b = math.floor(defaultColor.R * 255), math.floor(defaultColor.G * 255), math.floor(defaultColor.B * 255)
+            local currentColor = defaultColor or Color3.fromRGB(255, 0, 0)
+            local r, g, b = math.floor(currentColor.R * 255), math.floor(currentColor.G * 255), math.floor(currentColor.B * 255)
             local expanded = false
             
-            local f = Instance.new("Frame", scroll); f.Size = UDim2.new(1, -4, 0, 48); f.BackgroundColor3 = Color3.fromRGB(28, 28, 36); f.BorderSizePixel = 0; f.ZIndex = 11
+            local f = Instance.new("Frame", scroll); f.Size = UDim2.new(1, -4, 0, 52); f.BackgroundColor3 = Color3.fromRGB(28, 28, 36); f.BorderSizePixel = 0; f.ZIndex = 11
             Instance.new("UICorner", f).CornerRadius = UDim.new(0, 10)
+            f.ClipsDescendants = true
             
-            local l = Instance.new("TextLabel", f); l.Size = UDim2.new(0, 100, 1, 0); l.Position = UDim2.new(0, 14, 0, 0); l.Text = text
+            -- Заголовок
+            local l = Instance.new("TextLabel", f); l.Size = UDim2.new(0, 150, 0, 52); l.Position = UDim2.new(0, 14, 0, 0); l.Text = text
             l.Font = Enum.Font.GothamBold; l.TextColor3 = Color3.fromRGB(220, 220, 235); l.BackgroundTransparency = 1; l.TextXAlignment = Enum.TextXAlignment.Left; l.TextSize = 14; l.ZIndex = 12
             
-            local prev = Instance.new("Frame", f); prev.Size = UDim2.new(0, 30, 0, 30); prev.Position = UDim2.new(1, -44, 0.5, -15); prev.BackgroundColor3 = defaultColor; prev.BorderSizePixel = 0; prev.ZIndex = 12
-            Instance.new("UICorner", prev).CornerRadius = UDim.new(0, 6)
+            -- Превью цвета
+            local prev = Instance.new("Frame", f); prev.Size = UDim2.new(0, 32, 0, 32); prev.Position = UDim2.new(1, -52, 0, 10); prev.BackgroundColor3 = currentColor; prev.BorderSizePixel = 0; prev.ZIndex = 12
+            Instance.new("UICorner", prev).CornerRadius = UDim.new(0, 8)
+            local prevStroke = Instance.new("UIStroke", prev); prevStroke.Color = Color3.fromRGB(80, 80, 95); prevStroke.Thickness = 2
             
-            -- RGB слайдеры (скрыты пока не раскрыт)
-            local function createRGBSlider(yPos, color, initial)
-                local track = Instance.new("Frame", f); track.Size = UDim2.new(1, -28, 0, 8); track.Position = UDim2.new(0, 14, 0, yPos); track.BackgroundColor3 = Color3.fromRGB(45, 45, 60); track.BorderSizePixel = 0; track.ZIndex = 13
+            -- Кнопка раскрытия
+            local arrow = Instance.new("TextLabel", f); arrow.Size = UDim2.new(0, 24, 0, 24); arrow.Position = UDim2.new(1, -24, 0, 14); arrow.BackgroundTransparency = 1; arrow.Text = "▼"; arrow.Font = Enum.Font.GothamBold; arrow.TextSize = 12; arrow.TextColor3 = Color3.fromRGB(150, 150, 165); arrow.ZIndex = 12
+            
+            -- Контейнер для слайдеров
+            local sliderContainer = Instance.new("Frame", f); sliderContainer.Size = UDim2.new(1, -28, 0, 120); sliderContainer.Position = UDim2.new(0, 14, 0, 56); sliderContainer.BackgroundTransparency = 1; sliderContainer.ZIndex = 12
+            
+            -- HEX Label
+            local hexLabel = Instance.new("TextLabel", sliderContainer); hexLabel.Size = UDim2.new(0, 80, 0, 20); hexLabel.Position = UDim2.new(0.5, -40, 0, 100); hexLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45); hexLabel.Text = string.format("#%02X%02X%02X", r, g, b); hexLabel.Font = Enum.Font.GothamBold; hexLabel.TextSize = 11; hexLabel.TextColor3 = Color3.fromRGB(200, 200, 200); hexLabel.ZIndex = 13
+            Instance.new("UICorner", hexLabel).CornerRadius = UDim.new(0, 4)
+            
+            local function updateColor()
+                currentColor = Color3.fromRGB(r, g, b)
+                prev.BackgroundColor3 = currentColor
+                hexLabel.Text = string.format("#%02X%02X%02X", r, g, b)
+                callback(currentColor)
+            end
+            
+            -- RGB Слайдеры
+            local function createSlider(y, label, color, value, onChange)
+                local track = Instance.new("Frame", sliderContainer); track.Size = UDim2.new(1, -60, 0, 8); track.Position = UDim2.new(0, 50, 0, y); track.BackgroundColor3 = Color3.fromRGB(45, 45, 60); track.BorderSizePixel = 0; track.ZIndex = 13
                 Instance.new("UICorner", track).CornerRadius = UDim.new(1, 0)
-                local fill = Instance.new("Frame", track); fill.Size = UDim2.new(initial/255, 0, 1, 0); fill.BackgroundColor3 = color; fill.BorderSizePixel = 0; fill.ZIndex = 14
+                
+                local fill = Instance.new("Frame", track); fill.Size = UDim2.new(value/255, 0, 1, 0); fill.BackgroundColor3 = color; fill.BorderSizePixel = 0; fill.ZIndex = 14
                 Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-                local lbl = Instance.new("TextLabel", track); lbl.Size = UDim2.new(1, 0, 0, 14); lbl.Position = UDim2.new(0, 0, 0, 10); lbl.BackgroundTransparency = 1; lbl.Text = initial; lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 9; lbl.TextColor3 = Color3.fromRGB(200,200,200); lbl.ZIndex = 14
+                
+                local handle = Instance.new("Frame", track); handle.Size = UDim2.new(0, 14, 0, 14); handle.Position = UDim2.new(value/255, -7, 0.5, -7); handle.BackgroundColor3 = Color3.fromRGB(255, 255, 255); handle.BorderSizePixel = 0; handle.ZIndex = 15
+                Instance.new("UICorner", handle).CornerRadius = UDim.new(1, 0)
+                
+                local lbl = Instance.new("TextLabel", sliderContainer); lbl.Size = UDim2.new(0, 40, 0, 16); lbl.Position = UDim2.new(0, 0, 0, y - 4); lbl.BackgroundTransparency = 1; lbl.Text = label; lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 10; lbl.TextColor3 = color; lbl.ZIndex = 13
+                local valLbl = Instance.new("TextLabel", sliderContainer); valLbl.Size = UDim2.new(0, 30, 0, 16); valLbl.Position = UDim2.new(1, -30, 0, y - 4); valLbl.BackgroundTransparency = 1; valLbl.Text = tostring(value); valLbl.Font = Enum.Font.GothamBold; valLbl.TextSize = 10; valLbl.TextColor3 = Color3.fromRGB(180, 180, 180); valLbl.ZIndex = 13
                 
                 local dragging = false
                 local function update()
                     local m = math.clamp((UserInputService:GetMouseLocation().X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
                     local val = math.floor(m * 255)
-                    fill.Size = UDim2.new(m, 0, 1, 0); lbl.Text = val
+                    fill.Size = UDim2.new(m, 0, 1, 0); handle.Position = UDim2.new(m, -7, 0.5, -7); valLbl.Text = tostring(val)
+                    onChange(val)
+                    updateColor()
                     return val
                 end
-                track.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end end)
-                UserInputService.InputChanged:Connect(function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-                    if color == Color3.fromRGB(255,0,0) then r = update()
-                    elseif color == Color3.fromRGB(0,255,0) then g = update()
-                    else b = update() end
-                    prev.BackgroundColor3 = Color3.fromRGB(r/255, g/255, b/255)
-                    callback(Color3.fromRGB(r/255, g/255, b/255))
-                end end)
+                track.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; update() end end)
+                UserInputService.InputChanged:Connect(function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then update() end end)
                 UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-                return {track = track, fill = fill, lbl = lbl}
             end
             
-            local rSlider = createRGBSlider(48, Color3.fromRGB(255,0,0), r)
-            local gSlider = createRGBSlider(64, Color3.fromRGB(0,255,0), g)
-            local bSlider = createRGBSlider(80, Color3.fromRGB(0,0,255), b)
+            createSlider(0, "R", Color3.fromRGB(255, 60, 60), r, function(v) r = v end)
+            createSlider(28, "G", Color3.fromRGB(60, 255, 60), g, function(v) g = v end)
+            createSlider(56, "B", Color3.fromRGB(60, 120, 255), b, function(v) b = v end)
             
-            -- Скрываем слайдеры
-            for _, s in ipairs({rSlider, gSlider, bSlider}) do
-                s.track.Visible = false; s.fill.Visible = false; s.lbl.Visible = false
-            end
+            -- Клик по заголовку — раскрыть/свернуть
+            local clickArea = Instance.new("TextButton", f); clickArea.Size = UDim2.new(1, 0, 0, 52); clickArea.BackgroundTransparency = 1; clickArea.Text = ""; clickArea.ZIndex = 15
             
-            local toggleBtn = Instance.new("TextButton", f); toggleBtn.Size = UDim2.new(1, 0, 1, 0); toggleBtn.BackgroundTransparency = 1; toggleBtn.Text = ""; toggleBtn.ZIndex = 15; toggleBtn.AutoButtonColor = false
-            
-            toggleBtn.MouseButton1Click:Connect(function()
+            clickArea.MouseButton1Click:Connect(function()
                 expanded = not expanded
                 if expanded then
-                    f.Size = UDim2.new(1, -4, 0, 105)
-                    for _, s in ipairs({rSlider, gSlider, bSlider}) do
-                        s.track.Visible = true; s.fill.Visible = true; s.lbl.Visible = true
-                    end
+                    f.Size = UDim2.new(1, -4, 0, 180)
+                    arrow.Text = "▲"
+                    TweenService:Create(f, TweenInfo.new(0.2), {Size = UDim2.new(1, -4, 0, 180)}):Play()
                 else
-                    f.Size = UDim2.new(1, -4, 0, 48)
-                    for _, s in ipairs({rSlider, gSlider, bSlider}) do
-                        s.track.Visible = false; s.fill.Visible = false; s.lbl.Visible = false
-                    end
+                    arrow.Text = "▼"
+                    TweenService:Create(f, TweenInfo.new(0.2), {Size = UDim2.new(1, -4, 0, 52)}):Play()
                 end
             end)
             
             return {
-                GetColor = function() return Color3.fromRGB(r/255, g/255, b/255) end,
-                SetColor = function(c) r = math.floor(c.R*255); g = math.floor(c.G*255); b = math.floor(c.B*255); prev.BackgroundColor3 = c end
+                GetColor = function() return currentColor end,
+                SetColor = function(c) 
+                    r = math.floor(c.R * 255); g = math.floor(c.G * 255); b = math.floor(c.B * 255)
+                    currentColor = c; prev.BackgroundColor3 = c; hexLabel.Text = string.format("#%02X%02X%02X", r, g, b)
+                end
             }
         end
 
