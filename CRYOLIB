@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════
--- CRYOLIB v2 — Fixed UI Library
+-- CRYOLIB v3 — Toggle + Keybind Link Fix
 -- ═══════════════════════════════════════════════
 
 local CryoLib = {}
@@ -23,7 +23,7 @@ function CryoLib:CreateWindow(hubName)
         visible = true,
         minimized = false,
         closing = false,
-        activeToggles = {},
+        activeToggles = {},    -- хранит все тогглы для поиска по имени
         dropdowns = {},
         keybinds = {}
     }
@@ -300,10 +300,11 @@ function CryoLib:CreateWindow(hubName)
             tabIndicator.Position = UDim2.new(0, 8, 0, btn.AbsolutePosition.Y - tabContainer.AbsolutePosition.Y)
         end
 
-        -- [[ TOGGLE ]]
+        -- [[ TOGGLE — с именем для поиска ]]
         function tabObj:CreateToggle(txt, callback)
             local state = false
             local f = Instance.new("Frame", scroll); f.Size = UDim2.new(1, -4, 0, 48); f.BackgroundColor3 = Color3.fromRGB(28, 28, 36); f.BorderSizePixel = 0; f.ZIndex = 11
+            f.Name = "Toggle_" .. txt  -- имя для поиска
             Instance.new("UICorner", f).CornerRadius = UDim.new(0, 10)
             local l = Instance.new("TextLabel", f); l.Size = UDim2.new(1, -70, 1, 0); l.Position = UDim2.new(0, 14, 0, 0); l.Text = txt
             l.Font = Enum.Font.GothamBold; l.TextColor3 = Color3.fromRGB(220, 220, 235); l.BackgroundTransparency = 1; l.TextXAlignment = Enum.TextXAlignment.Left; l.TextSize = 14; l.ZIndex = 12
@@ -312,14 +313,35 @@ function CryoLib:CreateWindow(hubName)
             local c = Instance.new("Frame", bg); c.Size = UDim2.new(0, 18, 0, 18); c.Position = UDim2.new(0, 2, 0.5, -9); c.BackgroundColor3 = Color3.fromRGB(255, 255, 255); c.BorderSizePixel = 0; c.ZIndex = 13
             Instance.new("UICorner", c).CornerRadius = UDim.new(1, 0)
             local b = Instance.new("TextButton", f); b.Size = UDim2.new(1, 0, 1, 0); b.BackgroundTransparency = 1; b.Text = ""; b.AutoButtonColor = false; b.ZIndex = 14
-            local td = {state = false, callback = callback, bg = bg, circle = c}
-            table.insert(libData.activeToggles, td)
-            b.MouseButton1Click:Connect(function()
-                state = not state; td.state = state
+            
+            -- Функция переключения (доступна извне)
+            local function setToggle(newState)
+                state = newState
                 TweenService:Create(bg, TweenInfo.new(0.25), {BackgroundColor3 = state and libData.accent or Color3.fromRGB(50, 50, 65)}):Play()
                 TweenService:Create(c, TweenInfo.new(0.25), {Position = state and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)}):Play()
                 callback(state)
+            end
+            
+            b.MouseButton1Click:Connect(function()
+                setToggle(not state)
             end)
+            
+            local td = {
+                name = txt,
+                state = false,
+                callback = callback,
+                bg = bg,
+                circle = c,
+                set = setToggle,
+                get = function() return state end
+            }
+            table.insert(libData.activeToggles, td)
+            
+            -- Возвращаем объект для управления извне
+            return {
+                Set = setToggle,
+                Get = function() return state end
+            }
         end
 
         -- [[ SLIDER ]]
@@ -359,8 +381,8 @@ function CryoLib:CreateWindow(hubName)
             l.TextColor3 = libData.accent; l.Font = Enum.Font.GothamBlack; l.BackgroundTransparency = 1; l.TextSize = 13; l.TextXAlignment = Enum.TextXAlignment.Left; l.ZIndex = 12
         end
 
-        -- [[ KEYBIND — ИСПРАВЛЕННЫЙ: настраиваемая клавиша + выполнение функции ]]
-        function tabObj:CreateKeybind(text, defaultKey, callback)
+        -- [[ KEYBIND — ИСПРАВЛЕННЫЙ: настраиваемая клавиша + выполнение функции + ссылка на Toggle ]]
+        function tabObj:CreateKeybind(text, defaultKey, callback, linkedToggleName)
             local key = defaultKey or "None"
             local binding = false
             
@@ -414,7 +436,7 @@ function CryoLib:CreateWindow(hubName)
             }
         end
 
-        -- [[ COLOR PICKER — КРАСИВЫЙ: палитра + RGB слайдеры + HEX ]]
+        -- [[ COLOR PICKER — КРАСИВЫЙ ]]
         function tabObj:CreateColorPicker(text, defaultColor, callback)
             local currentColor = defaultColor or Color3.fromRGB(255, 0, 0)
             local r, g, b = math.floor(currentColor.R * 255), math.floor(currentColor.G * 255), math.floor(currentColor.B * 255)
@@ -424,22 +446,17 @@ function CryoLib:CreateWindow(hubName)
             Instance.new("UICorner", f).CornerRadius = UDim.new(0, 10)
             f.ClipsDescendants = true
             
-            -- Заголовок
             local l = Instance.new("TextLabel", f); l.Size = UDim2.new(0, 150, 0, 52); l.Position = UDim2.new(0, 14, 0, 0); l.Text = text
             l.Font = Enum.Font.GothamBold; l.TextColor3 = Color3.fromRGB(220, 220, 235); l.BackgroundTransparency = 1; l.TextXAlignment = Enum.TextXAlignment.Left; l.TextSize = 14; l.ZIndex = 12
             
-            -- Превью цвета
             local prev = Instance.new("Frame", f); prev.Size = UDim2.new(0, 32, 0, 32); prev.Position = UDim2.new(1, -52, 0, 10); prev.BackgroundColor3 = currentColor; prev.BorderSizePixel = 0; prev.ZIndex = 12
             Instance.new("UICorner", prev).CornerRadius = UDim.new(0, 8)
             local prevStroke = Instance.new("UIStroke", prev); prevStroke.Color = Color3.fromRGB(80, 80, 95); prevStroke.Thickness = 2
             
-            -- Кнопка раскрытия
             local arrow = Instance.new("TextLabel", f); arrow.Size = UDim2.new(0, 24, 0, 24); arrow.Position = UDim2.new(1, -24, 0, 14); arrow.BackgroundTransparency = 1; arrow.Text = "▼"; arrow.Font = Enum.Font.GothamBold; arrow.TextSize = 12; arrow.TextColor3 = Color3.fromRGB(150, 150, 165); arrow.ZIndex = 12
             
-            -- Контейнер для слайдеров
             local sliderContainer = Instance.new("Frame", f); sliderContainer.Size = UDim2.new(1, -28, 0, 120); sliderContainer.Position = UDim2.new(0, 14, 0, 56); sliderContainer.BackgroundTransparency = 1; sliderContainer.ZIndex = 12
             
-            -- HEX Label
             local hexLabel = Instance.new("TextLabel", sliderContainer); hexLabel.Size = UDim2.new(0, 80, 0, 20); hexLabel.Position = UDim2.new(0.5, -40, 0, 100); hexLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45); hexLabel.Text = string.format("#%02X%02X%02X", r, g, b); hexLabel.Font = Enum.Font.GothamBold; hexLabel.TextSize = 11; hexLabel.TextColor3 = Color3.fromRGB(200, 200, 200); hexLabel.ZIndex = 13
             Instance.new("UICorner", hexLabel).CornerRadius = UDim.new(0, 4)
             
@@ -450,17 +467,13 @@ function CryoLib:CreateWindow(hubName)
                 callback(currentColor)
             end
             
-            -- RGB Слайдеры
             local function createSlider(y, label, color, value, onChange)
                 local track = Instance.new("Frame", sliderContainer); track.Size = UDim2.new(1, -60, 0, 8); track.Position = UDim2.new(0, 50, 0, y); track.BackgroundColor3 = Color3.fromRGB(45, 45, 60); track.BorderSizePixel = 0; track.ZIndex = 13
                 Instance.new("UICorner", track).CornerRadius = UDim.new(1, 0)
-                
                 local fill = Instance.new("Frame", track); fill.Size = UDim2.new(value/255, 0, 1, 0); fill.BackgroundColor3 = color; fill.BorderSizePixel = 0; fill.ZIndex = 14
                 Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-                
                 local handle = Instance.new("Frame", track); handle.Size = UDim2.new(0, 14, 0, 14); handle.Position = UDim2.new(value/255, -7, 0.5, -7); handle.BackgroundColor3 = Color3.fromRGB(255, 255, 255); handle.BorderSizePixel = 0; handle.ZIndex = 15
                 Instance.new("UICorner", handle).CornerRadius = UDim.new(1, 0)
-                
                 local lbl = Instance.new("TextLabel", sliderContainer); lbl.Size = UDim2.new(0, 40, 0, 16); lbl.Position = UDim2.new(0, 0, 0, y - 4); lbl.BackgroundTransparency = 1; lbl.Text = label; lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 10; lbl.TextColor3 = color; lbl.ZIndex = 13
                 local valLbl = Instance.new("TextLabel", sliderContainer); valLbl.Size = UDim2.new(0, 30, 0, 16); valLbl.Position = UDim2.new(1, -30, 0, y - 4); valLbl.BackgroundTransparency = 1; valLbl.Text = tostring(value); valLbl.Font = Enum.Font.GothamBold; valLbl.TextSize = 10; valLbl.TextColor3 = Color3.fromRGB(180, 180, 180); valLbl.ZIndex = 13
                 
@@ -482,7 +495,6 @@ function CryoLib:CreateWindow(hubName)
             createSlider(28, "G", Color3.fromRGB(60, 255, 60), g, function(v) g = v end)
             createSlider(56, "B", Color3.fromRGB(60, 120, 255), b, function(v) b = v end)
             
-            -- Клик по заголовку — раскрыть/свернуть
             local clickArea = Instance.new("TextButton", f); clickArea.Size = UDim2.new(1, 0, 0, 52); clickArea.BackgroundTransparency = 1; clickArea.Text = ""; clickArea.ZIndex = 15
             
             clickArea.MouseButton1Click:Connect(function()
@@ -490,10 +502,9 @@ function CryoLib:CreateWindow(hubName)
                 if expanded then
                     f.Size = UDim2.new(1, -4, 0, 180)
                     arrow.Text = "▲"
-                    TweenService:Create(f, TweenInfo.new(0.2), {Size = UDim2.new(1, -4, 0, 180)}):Play()
                 else
+                    f.Size = UDim2.new(1, -4, 0, 52)
                     arrow.Text = "▼"
-                    TweenService:Create(f, TweenInfo.new(0.2), {Size = UDim2.new(1, -4, 0, 52)}):Play()
                 end
             end)
             
@@ -558,6 +569,16 @@ function CryoLib:CreateWindow(hubName)
         end
 
         return tabObj
+    end
+
+    -- ==================== GLOBAL: Найти Toggle по имени ====================
+    function libData:GetToggle(name)
+        for _, t in ipairs(libData.activeToggles) do
+            if t.name == name then
+                return t
+            end
+        end
+        return nil
     end
 
     return libData
