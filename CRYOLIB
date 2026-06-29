@@ -1,4 +1,3 @@
--- bebe
 local CryoLib = {}
 
 local function tableFind(t, val)
@@ -27,6 +26,13 @@ function CryoLib:CreateWindow(title)
         closed = false,
         minimized = false
     }
+
+    -- Храним все соединения для очистки при закрытии
+    local connections = {}
+    local function track(conn)
+        table.insert(connections, conn)
+        return conn
+    end
 
     local function closeAllDropdowns()
         for _, dd in ipairs(windowData.dropdowns) do
@@ -69,20 +75,20 @@ function CryoLib:CreateWindow(title)
     addGlow(floatButton, accentColor)
 
     local isDragging, dragStart, dragPos
-    floatButton.InputBegan:Connect(function(input)
+    track(floatButton.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             isDragging = true; dragStart = input.Position; dragPos = floatButton.Position
         end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
+    end))
+    track(UserInputService.InputChanged:Connect(function(input)
         if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
             local delta = input.Position - dragStart
             floatButton.Position = UDim2.new(dragPos.X.Scale, dragPos.X.Offset + delta.X, dragPos.Y.Scale, dragPos.Y.Offset + delta.Y)
         end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
+    end))
+    track(UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then isDragging = false end
-    end)
+    end))
 
     local mainPanel = Instance.new("Frame")
     mainPanel.Size = UDim2.new(0, 440, 0, 540)
@@ -147,7 +153,13 @@ function CryoLib:CreateWindow(title)
         end
         TweenService:Create(mainPanel, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
         TweenService:Create(floatButton, TweenInfo.new(0.4), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
-        task.delay(0.6, function() screenGui:Destroy() end)
+        task.delay(0.6, function()
+            -- Очищаем все соединения
+            for _, conn in ipairs(connections) do
+                if conn then conn:Disconnect() end
+            end
+            screenGui:Destroy()
+        end)
     end
 
     local function toggleGui()
@@ -203,27 +215,27 @@ function CryoLib:CreateWindow(title)
     minimizeButton.MouseLeave:Connect(function() TweenService:Create(minimizeButton, TweenInfo.new(0.15), {TextColor3 = Color3.fromRGB(150, 150, 150)}):Play() end)
 
     local panelDrag, panelDragStart, panelDragPos
-    header.InputBegan:Connect(function(input)
+    track(header.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 and not windowData.closed then
             panelDrag = true; panelDragStart = input.Position; panelDragPos = mainPanel.Position
         end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
+    end))
+    track(UserInputService.InputChanged:Connect(function(input)
         if panelDrag and input.UserInputType == Enum.UserInputType.MouseMovement then
             local delta = input.Position - panelDragStart
             mainPanel.Position = UDim2.new(panelDragPos.X.Scale, panelDragPos.X.Offset + delta.X, panelDragPos.Y.Scale, panelDragPos.Y.Offset + delta.Y)
             normalPos = mainPanel.Position
         end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
+    end))
+    track(UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then panelDrag = false end
-    end)
+    end))
 
     local tabIndicator = Instance.new("Frame")
     tabIndicator.Size = UDim2.new(0, 3, 0, 0); tabIndicator.Position = UDim2.new(0, 8, 0, 0)
     tabIndicator.BackgroundColor3 = accentColor; tabIndicator.BorderSizePixel = 0; tabIndicator.Visible = false; tabIndicator.ZIndex = 12; tabIndicator.Parent = tabPanel
 
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    track(UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             local mousePos = UserInputService:GetMouseLocation()
@@ -237,7 +249,7 @@ function CryoLib:CreateWindow(title)
                 end
             end
         end
-    end)
+    end))
 
     function windowData:CreateTab(name)
         local tab = {}
@@ -440,145 +452,208 @@ function CryoLib:CreateWindow(title)
             return {GetColor = function() return color end, SetColor = function(c) r = math.floor(c.R*255); g = math.floor(c.G*255); b = math.floor(c.B*255); color = c; preview.BackgroundColor3 = c; hexLabel.Text = string.format("#%02X%02X%02X", r, g, b); for i, s in ipairs(sliders) do s.Set(i==1 and r or i==2 and g or b) end end}
         end
 
-function tab:CreateDropdown(text, options, multi, callback)
-    local selected = multi and {} or (options[1] or "")
-    local open = false
-    local items = {}
+        function tab:CreateDropdown(text, options, multi, callback)
+            local selected = multi and {} or (options[1] or "")
+            local open = false
+            local items = {}
 
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -4, 0, 48)
-    frame.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
-    frame.BorderSizePixel = 0
-    frame.ZIndex = 11
-    frame.Parent = scroll
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(1, -4, 0, 48)
+            frame.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
+            frame.BorderSizePixel = 0
+            frame.ZIndex = 11
+            frame.Parent = scroll
+            Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
 
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -50, 1, 0)
-    label.Position = UDim2.new(0, 14, 0, 0)
-    label.Text = text .. ": " .. (multi and "None" or tostring(selected))
-    label.Font = Enum.Font.GothamBold
-    label.TextColor3 = Color3.fromRGB(220, 220, 235)
-    label.BackgroundTransparency = 1
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.TextSize = 14
-    label.ZIndex = 12
-    label.Parent = frame
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, -50, 1, 0)
+            label.Position = UDim2.new(0, 14, 0, 0)
+            label.Text = text .. ": " .. (multi and "None" or tostring(selected))
+            label.Font = Enum.Font.GothamBold
+            label.TextColor3 = Color3.fromRGB(220, 220, 235)
+            label.BackgroundTransparency = 1
+            label.TextXAlignment = Enum.TextXAlignment.Left
+            label.TextSize = 14
+            label.ZIndex = 12
+            label.Parent = frame
 
-    local arrowLabel = Instance.new("TextLabel")
-    arrowLabel.Size = UDim2.new(0, 24, 0, 24)
-    arrowLabel.Position = UDim2.new(1, -34, 0.5, -12)
-    arrowLabel.BackgroundTransparency = 1
-    arrowLabel.Text = "▼"
-    arrowLabel.Font = Enum.Font.GothamBold
-    arrowLabel.TextSize = 12
-    arrowLabel.TextColor3 = Color3.fromRGB(150, 150, 165)
-    arrowLabel.ZIndex = 12
-    arrowLabel.Parent = frame
+            local arrowLabel = Instance.new("TextLabel")
+            arrowLabel.Size = UDim2.new(0, 24, 0, 24)
+            arrowLabel.Position = UDim2.new(1, -34, 0.5, -12)
+            arrowLabel.BackgroundTransparency = 1
+            arrowLabel.Text = "▼"
+            arrowLabel.Font = Enum.Font.GothamBold
+            arrowLabel.TextSize = 12
+            arrowLabel.TextColor3 = Color3.fromRGB(150, 150, 165)
+            arrowLabel.ZIndex = 12
+            arrowLabel.Parent = frame
 
-    local clickBtn = Instance.new("TextButton")
-    clickBtn.Size = UDim2.new(1, 0, 1, 0)
-    clickBtn.BackgroundTransparency = 1
-    clickBtn.Text = ""
-    clickBtn.ZIndex = 14
-    clickBtn.Parent = frame
+            local clickBtn = Instance.new("TextButton")
+            clickBtn.Size = UDim2.new(1, 0, 1, 0)
+            clickBtn.BackgroundTransparency = 1
+            clickBtn.Text = ""
+            clickBtn.ZIndex = 14
+            clickBtn.Parent = frame
 
-    local listFrame = Instance.new("Frame")
-    listFrame.Size = UDim2.new(0, 0, 0, 0)
-    listFrame.BackgroundColor3 = Color3.fromRGB(32, 32, 42)
-    listFrame.BorderSizePixel = 0
-    listFrame.ZIndex = 1001
-    listFrame.Visible = false
-    listFrame.ClipsDescendants = true
-    listFrame.Parent = dropdownOverlay
-    Instance.new("UICorner", listFrame).CornerRadius = UDim.new(0, 10)
+            local listFrame = Instance.new("Frame")
+            listFrame.Size = UDim2.new(0, 0, 0, 0)
+            listFrame.BackgroundColor3 = Color3.fromRGB(32, 32, 42)
+            listFrame.BorderSizePixel = 0
+            listFrame.ZIndex = 1001
+            listFrame.Visible = false
+            listFrame.ClipsDescendants = true
+            listFrame.Parent = dropdownOverlay
+            Instance.new("UICorner", listFrame).CornerRadius = UDim.new(0, 10)
 
-    local listScroll = Instance.new("ScrollingFrame")
-    listScroll.Size = UDim2.new(1, -8, 1, -8)
-    listScroll.Position = UDim2.new(0, 4, 0, 4)
-    listScroll.BackgroundTransparency = 1
-    listScroll.BorderSizePixel = 0
-    listScroll.ScrollBarThickness = 2
-    listScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    listScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    listScroll.ZIndex = 1002
-    listScroll.Parent = listFrame
+            local listScroll = Instance.new("ScrollingFrame")
+            listScroll.Size = UDim2.new(1, -8, 1, -8)
+            listScroll.Position = UDim2.new(0, 4, 0, 4)
+            listScroll.BackgroundTransparency = 1
+            listScroll.BorderSizePixel = 0
+            listScroll.ScrollBarThickness = 2
+            listScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            listScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+            listScroll.ZIndex = 1002
+            listScroll.Parent = listFrame
 
-    local listLayout = Instance.new("UIListLayout")
-    listLayout.Padding = UDim.new(0, 2)
-    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    listLayout.Parent = listScroll
+            local listLayout = Instance.new("UIListLayout")
+            listLayout.Padding = UDim.new(0, 2)
+            listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            listLayout.Parent = listScroll
 
-    local listPadding = Instance.new("UIPadding")
-    listPadding.PaddingTop = UDim.new(0, 2)
-    listPadding.PaddingBottom = UDim.new(0, 2)
-    listPadding.Parent = listScroll
+            local listPadding = Instance.new("UIPadding")
+            listPadding.PaddingTop = UDim.new(0, 2)
+            listPadding.PaddingBottom = UDim.new(0, 2)
+            listPadding.Parent = listScroll
 
-    local currentWidth = 0
-    local currentHeight = 0
+            local currentWidth = 0
+            local currentHeight = 0
 
-    local function updateLabel()
-        if multi then
-            local n = #selected
-            label.Text = text .. ": " .. (n == 0 and "None" or n == 1 and selected[1] or n .. " selected")
-        else
-            label.Text = text .. ": " .. tostring(selected)
-        end
-    end
-
-    local function updateItems()
-        for _, item in ipairs(items) do
-            local isSelected = multi and tableFind(selected, item.option) ~= nil or selected == item.option
-            item.indicator.BackgroundColor3 = isSelected and accentColor or Color3.fromRGB(50, 50, 65)
-            for _, child in ipairs(item.indicator:GetChildren()) do
-                if child:IsA("TextLabel") then child:Destroy() end
+            local function updateLabel()
+                if multi then
+                    local n = #selected
+                    label.Text = text .. ": " .. (n == 0 and "None" or n == 1 and selected[1] or n .. " selected")
+                else
+                    label.Text = text .. ": " .. tostring(selected)
+                end
             end
-            if multi and isSelected then
-                local check = Instance.new("TextLabel")
-                check.Size = UDim2.new(1, 0, 1, 0)
-                check.BackgroundTransparency = 1
-                check.Text = "✓"
-                check.Font = Enum.Font.GothamBold
-                check.TextSize = 10
-                check.TextColor3 = Color3.fromRGB(255, 255, 255)
-                check.ZIndex = 1005
-                check.Parent = item.indicator
+
+            local function updateItems()
+                for _, item in ipairs(items) do
+                    local isSelected = multi and tableFind(selected, item.option) ~= nil or selected == item.option
+                    item.indicator.BackgroundColor3 = isSelected and accentColor or Color3.fromRGB(50, 50, 65)
+                    for _, child in ipairs(item.indicator:GetChildren()) do
+                        if child:IsA("TextLabel") then child:Destroy() end
+                    end
+                    if multi and isSelected then
+                        local check = Instance.new("TextLabel")
+                        check.Size = UDim2.new(1, 0, 1, 0)
+                        check.BackgroundTransparency = 1
+                        check.Text = "✓"
+                        check.Font = Enum.Font.GothamBold
+                        check.TextSize = 10
+                        check.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        check.ZIndex = 1005
+                        check.Parent = item.indicator
+                    end
+                end
             end
-        end
-    end
 
-    local function makeItem(option)
-        local itemBtn = Instance.new("TextButton")
-        itemBtn.Size = UDim2.new(1, 0, 0, 32)
-        itemBtn.BackgroundTransparency = 1
-        itemBtn.Text = "  " .. option
-        itemBtn.Font = Enum.Font.GothamBold
-        itemBtn.TextSize = 13
-        itemBtn.TextColor3 = Color3.fromRGB(180, 180, 200)
-        itemBtn.TextXAlignment = Enum.TextXAlignment.Left
-        itemBtn.ZIndex = 1003
-        itemBtn.Parent = listScroll
+            local function makeItem(option)
+                local itemBtn = Instance.new("TextButton")
+                itemBtn.Size = UDim2.new(1, 0, 0, 32)
+                itemBtn.BackgroundTransparency = 1
+                itemBtn.Text = "  " .. option
+                itemBtn.Font = Enum.Font.GothamBold
+                itemBtn.TextSize = 13
+                itemBtn.TextColor3 = Color3.fromRGB(180, 180, 200)
+                itemBtn.TextXAlignment = Enum.TextXAlignment.Left
+                itemBtn.ZIndex = 1003
+                itemBtn.Parent = listScroll
 
-        local indicator = Instance.new("Frame")
-        indicator.Size = UDim2.new(0, 16, 0, 16)
-        indicator.Position = UDim2.new(1, -24, 0.5, -8)
-        indicator.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
-        indicator.BorderSizePixel = 0
-        indicator.ZIndex = 1004
-        indicator.Parent = itemBtn
-        Instance.new("UICorner", indicator).CornerRadius = UDim.new(multi and 0 or 1, multi and 3 or 0)
+                local indicator = Instance.new("Frame")
+                indicator.Size = UDim2.new(0, 16, 0, 16)
+                indicator.Position = UDim2.new(1, -24, 0.5, -8)
+                indicator.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+                indicator.BorderSizePixel = 0
+                indicator.ZIndex = 1004
+                indicator.Parent = itemBtn
+                Instance.new("UICorner", indicator).CornerRadius = UDim.new(multi and 0 or 1, multi and 3 or 0)
 
-        itemBtn.MouseButton1Click:Connect(function()
-            if multi then
-                local found = tableFind(selected, option)
-                if found then table.remove(selected, found) else table.insert(selected, option) end
+                itemBtn.MouseButton1Click:Connect(function()
+                    if multi then
+                        local found = tableFind(selected, option)
+                        if found then table.remove(selected, found) else table.insert(selected, option) end
+                        updateItems()
+                        callback(selected)
+                    else
+                        selected = option
+                        updateItems()
+                        callback(selected)
+                        -- Закрываем дропдаун
+                        open = false
+                        arrowLabel.Text = "▼"
+                        TweenService:Create(listFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                            Size = UDim2.new(0, currentWidth, 0, 0)
+                        }):Play()
+                        task.delay(0.15, function()
+                            listFrame.Visible = false
+                        end)
+                    end
+                    updateLabel()
+                end)
+
+                table.insert(items, {button = itemBtn, indicator = indicator, option = option})
+            end
+
+            for _, option in ipairs(options) do
+                makeItem(option)
+            end
+
+            local maxHeight = math.min(#options * 34 + 4, 160)
+
+            local function positionList()
+                local absPos = frame.AbsolutePosition
+                local absSize = frame.AbsoluteSize
+                local screenSize = workspace.CurrentCamera.ViewportSize
+
+                local yPos = absPos.Y + absSize.Y + 2
+                currentHeight = maxHeight
+
+                if yPos + currentHeight > screenSize.Y - 10 then
+                    yPos = absPos.Y - currentHeight - 2
+                    if yPos < 10 then
+                        yPos = 10
+                        currentHeight = absPos.Y - 14
+                    end
+                end
+
+                local xPos = absPos.X
+                currentWidth = absSize.X
+                if xPos + currentWidth > screenSize.X - 10 then
+                    xPos = screenSize.X - currentWidth - 10
+                end
+                if xPos < 10 then
+                    xPos = 10
+                    currentWidth = math.min(currentWidth, screenSize.X - 20)
+                end
+
+                listFrame.Position = UDim2.new(0, xPos, 0, yPos)
+            end
+
+            local function openDropdown()
+                open = true
+                arrowLabel.Text = "▲"
+                positionList()
+                listFrame.Visible = true
                 updateItems()
-                callback(selected)
-            else
-                selected = option
-                updateItems()
-                callback(selected)
-                -- Закрываем дропдаун
+                listFrame.Size = UDim2.new(0, currentWidth, 0, 0)
+                TweenService:Create(listFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(0, currentWidth, 0, currentHeight)
+                }):Play()
+            end
+
+            local function closeDropdown()
                 open = false
                 arrowLabel.Text = "▼"
                 TweenService:Create(listFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
@@ -588,109 +663,46 @@ function tab:CreateDropdown(text, options, multi, callback)
                     listFrame.Visible = false
                 end)
             end
-            updateLabel()
-        end)
 
-        table.insert(items, {button = itemBtn, indicator = indicator, option = option})
-    end
-
-    for _, option in ipairs(options) do
-        makeItem(option)
-    end
-
-    local maxHeight = math.min(#options * 34 + 4, 160)
-
-    local function positionList()
-        local absPos = frame.AbsolutePosition
-        local absSize = frame.AbsoluteSize
-        local screenSize = workspace.CurrentCamera.ViewportSize
-
-        local yPos = absPos.Y + absSize.Y + 2
-        currentHeight = maxHeight
-
-        if yPos + currentHeight > screenSize.Y - 10 then
-            yPos = absPos.Y - currentHeight - 2
-            if yPos < 10 then
-                yPos = 10
-                currentHeight = absPos.Y - 14
-            end
-        end
-
-        local xPos = absPos.X
-        currentWidth = absSize.X
-        if xPos + currentWidth > screenSize.X - 10 then
-            xPos = screenSize.X - currentWidth - 10
-        end
-        if xPos < 10 then
-            xPos = 10
-            currentWidth = math.min(currentWidth, screenSize.X - 20)
-        end
-
-        listFrame.Position = UDim2.new(0, xPos, 0, yPos)
-    end
-
-    local function openDropdown()
-        open = true
-        arrowLabel.Text = "▲"
-        positionList()
-        listFrame.Visible = true
-        updateItems()
-        listFrame.Size = UDim2.new(0, currentWidth, 0, 0)
-        TweenService:Create(listFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, currentWidth, 0, currentHeight)
-        }):Play()
-    end
-
-    local function closeDropdown()
-        open = false
-        arrowLabel.Text = "▼"
-        TweenService:Create(listFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-            Size = UDim2.new(0, currentWidth, 0, 0)
-        }):Play()
-        task.delay(0.15, function()
-            listFrame.Visible = false
-        end)
-    end
-
-    clickBtn.MouseButton1Click:Connect(function()
-        if open then
-            closeDropdown()
-        else
-            closeAllDropdowns()
-            openDropdown()
-        end
-    end)
-
-    local posConn = RunService.RenderStepped:Connect(function()
-        if open then positionList() end
-    end)
-
-    local dropdownData = {
-        open = false,
-        listFrame = listFrame,
-        buttonFrame = frame,
-        close = function()
-            open = false
-            arrowLabel.Text = "▼"
-            TweenService:Create(listFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                Size = UDim2.new(0, currentWidth, 0, 0)
-            }):Play()
-            task.delay(0.15, function()
-                listFrame.Visible = false
+            clickBtn.MouseButton1Click:Connect(function()
+                if open then
+                    closeDropdown()
+                else
+                    closeAllDropdowns()
+                    openDropdown()
+                end
             end)
-        end
-    }
-    table.insert(windowData.dropdowns, dropdownData)
 
-    return {
-        GetSelected = function() return multi and selected or selected end,
-        SetSelected = function(val)
-            if multi then selected = type(val) == "table" and val or {val} else selected = val end
-            updateLabel()
-            updateItems()
+            local posConn = RunService.RenderStepped:Connect(function()
+                if open then positionList() end
+            end)
+
+            local dropdownData = {
+                open = false,
+                listFrame = listFrame,
+                buttonFrame = frame,
+                close = function()
+                    open = false
+                    arrowLabel.Text = "▼"
+                    TweenService:Create(listFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                        Size = UDim2.new(0, currentWidth, 0, 0)
+                    }):Play()
+                    task.delay(0.15, function()
+                        listFrame.Visible = false
+                    end)
+                end
+            }
+            table.insert(windowData.dropdowns, dropdownData)
+
+            return {
+                GetSelected = function() return multi and selected or selected end,
+                SetSelected = function(val)
+                    if multi then selected = type(val) == "table" and val or {val} else selected = val end
+                    updateLabel()
+                    updateItems()
+                end
+            }
         end
-    }
-end
 
         return tab
     end
