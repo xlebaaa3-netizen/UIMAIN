@@ -653,47 +653,59 @@ function CryoLib:CreateWindow(title)
                     Size = UDim2.new(0, currentWidth, 0, currentHeight)
                 }):Play()
             end
+-- Находим место внутри tab:CreateDropdown после создания posConn
+-- ЗАМЕНИ этот кусочек кода:
+-- local posConn = RunService.RenderStepped:Connect(function()
+--     if open then positionList() end
+-- end)
 
-            local function closeDropdown()
-                open = false
-                arrowLabel.Text = "▼"
-                TweenService:Create(listFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                    Size = UDim2.new(0, currentWidth, 0, 0)
-                }):Play()
-                task.delay(0.15, function()
-                    listFrame.Visible = false
-                end)
-            end
+-- НА ЭТОТ ИСПРАВЛЕННЫЙ ВАРИАНТ:
+local posConn
+local scrollConn
 
-            clickBtn.MouseButton1Click:Connect(function()
-                if open then
-                    closeDropdown()
-                else
-                    closeAllDropdowns()
-                    openDropdown()
-                end
-            end)
+local function closeDropdown()
+    open = false
+    arrowLabel.Text = "▼"
+    TweenService:Create(listFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, currentWidth, 0, 0)
+    }):Play()
+    task.delay(0.15, function()
+        listFrame.Visible = false
+    end)
+end
 
-            local posConn = RunService.RenderStepped:Connect(function()
-                if open then positionList() end
-            end)
+-- Отслеживаем движение мыши и обновление позиции
+posConn = RunService.RenderStepped:Connect(function()
+    if open then 
+        positionList() 
+        
+        -- Проверка: если кнопка дропдауна уехала за пределы экрана/родителя, закрываем
+        if frame.AbsolutePosition.Y + frame.AbsoluteSize.Y < scroll.AbsolutePosition.Y or 
+           frame.AbsolutePosition.Y > scroll.AbsolutePosition.Y + scroll.AbsoluteSize.Y then
+            closeDropdown()
+        end
+    end
+end)
 
-            local dropdownData = {
-                open = false,
-                listFrame = listFrame,
-                buttonFrame = frame,
-                close = function()
-                    open = false
-                    arrowLabel.Text = "▼"
-                    TweenService:Create(listFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                        Size = UDim2.new(0, currentWidth, 0, 0)
-                    }):Play()
-                    task.delay(0.15, function()
-                        listFrame.Visible = false
-                    end)
-                end
-            }
-            table.insert(windowData.dropdowns, dropdownData)
+-- Магия: закрываем дропдаун автоматически, как только пользователь начинает скроллить вкладку!
+scrollConn = scroll:GetPropertiesChangedSignal("CanvasPosition"):Connect(function()
+    if open then
+        closeDropdown()
+    end
+end)
+
+-- Не забываем обновить функцию очистки внутри dropdownData, чтобы не плодить утечки памяти
+local dropdownData = {
+    open = false,
+    listFrame = listFrame,
+    buttonFrame = frame,
+    close = closeDropdown
+}
+table.insert(windowData.dropdowns, dropdownData)
+
+-- Дополнительно: если окно закрывается совсем (closePanel), нужно отсоединить CanvasPosition
+-- Для этого в самый конец closePanel (где уничтожается ScreenGui) можно добавить отключение,
+-- но так как scroll удаляется вместе со ScreenGui, Roblox сам очистит это соединение.
 
             return {
                 GetSelected = function() return multi and selected or selected end,
