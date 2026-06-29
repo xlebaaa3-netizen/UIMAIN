@@ -17,6 +17,10 @@ function CryoLib:CreateWindow(title)
     local accentColor = Color3.fromRGB(120, 170, 255)
     local guiKey = "K"
 
+    -- Таблицы для отслеживания активных слайдеров (СОЗДАЁМ ДО ИСПОЛЬЗОВАНИЯ!)
+    local activeSliderUpdates = {}
+    local sliderDragStops = {}
+
     local windowData = {
         tabs = {},
         toggles = {},
@@ -40,6 +44,8 @@ function CryoLib:CreateWindow(title)
             end
         end
         connections = {}
+        activeSliderUpdates = {}
+        sliderDragStops = {}
     end
 
     local function closeAllDropdowns()
@@ -63,7 +69,6 @@ function CryoLib:CreateWindow(title)
     screenGui.DisplayOrder = 999
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-    -- Безопасное добавление в PlayerGui
     local function safeParent(gui)
         local success, err = pcall(function()
             gui.Parent = player:WaitForChild("PlayerGui")
@@ -103,6 +108,8 @@ function CryoLib:CreateWindow(title)
         end
     end))
     
+    local panelDrag, panelDragStart, panelDragPos
+    
     local function onInputChanged(input)
         if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
             local delta = input.Position - dragStart
@@ -113,9 +120,9 @@ function CryoLib:CreateWindow(title)
             mainPanel.Position = UDim2.new(panelDragPos.X.Scale, panelDragPos.X.Offset + delta.X, panelDragPos.Y.Scale, panelDragPos.Y.Offset + delta.Y)
             normalPos = mainPanel.Position
         end
-        -- Обновление слайдеров
+        -- Обновление слайдеров (безопасный перебор)
         for _, sliderUpdate in ipairs(activeSliderUpdates) do
-            sliderUpdate()
+            pcall(sliderUpdate)
         end
     end
     track(UserInputService.InputChanged:Connect(onInputChanged))
@@ -124,9 +131,9 @@ function CryoLib:CreateWindow(title)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             isDragging = false
             panelDrag = false
-            -- Остановка всех слайдеров
+            -- Остановка всех слайдеров (безопасный перебор)
             for _, stopDrag in ipairs(sliderDragStops) do
-                stopDrag()
+                pcall(stopDrag)
             end
         end
     end
@@ -266,16 +273,11 @@ function CryoLib:CreateWindow(title)
     minimizeButton.MouseEnter:Connect(function() TweenService:Create(minimizeButton, TweenInfo.new(0.15), {TextColor3 = accentColor}):Play() end)
     minimizeButton.MouseLeave:Connect(function() TweenService:Create(minimizeButton, TweenInfo.new(0.15), {TextColor3 = Color3.fromRGB(150, 150, 150)}):Play() end)
 
-    local panelDrag, panelDragStart, panelDragPos
     track(header.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 and not windowData.closed then
             panelDrag = true; panelDragStart = input.Position; panelDragPos = mainPanel.Position
         end
     end))
-
-    -- Таблицы для отслеживания активных слайдеров
-    local activeSliderUpdates = {}
-    local sliderDragStops = {}
 
     local tabIndicator = Instance.new("Frame")
     tabIndicator.Size = UDim2.new(0, 3, 0, 0); tabIndicator.Position = UDim2.new(0, 8, 0, 0)
@@ -812,7 +814,6 @@ function CryoLib:CreateWindow(title)
 
     -- Защита от смерти персонажа
     local function onCharacterAdded(character)
-        -- Переподключаем GUI если нужно
         if screenGui and screenGui.Parent == nil then
             safeParent(screenGui)
         end
