@@ -33,6 +33,20 @@ function CryoLib:CreateWindow(title)
         return conn
     end
 
+    -- ОЧИСТКА: отключаем все старые соединения при создании нового окна
+    -- Это предотвращает дублирование при респавне
+    if _G.CryoLibConnections then
+        for _, conn in ipairs(_G.CryoLibConnections) do
+            if conn then pcall(function() conn:Disconnect() end) end
+        end
+    end
+    _G.CryoLibConnections = connections
+
+    -- ОЧИСТКА: уничтожаем старый GUI если он есть
+    if _G.CryoLibScreenGui then
+        pcall(function() _G.CryoLibScreenGui:Destroy() end)
+    end
+
     local function closeAllDropdowns()
         for _, dd in ipairs(windowData.dropdowns) do
             if dd.open then dd.close() end
@@ -50,9 +64,10 @@ function CryoLib:CreateWindow(title)
 
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "CryoLib"
-    screenGui.ResetOnSpawn = false
+    screenGui.ResetOnSpawn = false  -- ВАЖНО: GUI не пересоздаётся при респавне
     screenGui.DisplayOrder = 999
     screenGui.Parent = player:WaitForChild("PlayerGui")
+    _G.CryoLibScreenGui = screenGui  -- Сохраняем ссылку для очистки
 
     local dropdownOverlay = Instance.new("Frame")
     dropdownOverlay.Size = UDim2.new(1, 0, 1, 0)
@@ -154,8 +169,11 @@ function CryoLib:CreateWindow(title)
         TweenService:Create(floatButton, TweenInfo.new(0.4), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
         task.delay(0.6, function()
             for _, conn in ipairs(connections) do
-                if conn then conn:Disconnect() end
+                if conn then pcall(function() conn:Disconnect() end) end
             end
+            -- Очищаем глобальные ссылки
+            _G.CryoLibConnections = nil
+            _G.CryoLibScreenGui = nil
             screenGui:Destroy()
         end)
     end
@@ -174,6 +192,7 @@ function CryoLib:CreateWindow(title)
         guiKeyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
             if not gameProcessed and input.KeyCode == Enum.KeyCode[key] then toggleGui() end
         end)
+        track(guiKeyConnection)
     end
     setGuiKeybind("K")
 
