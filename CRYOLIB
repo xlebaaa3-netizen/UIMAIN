@@ -1,14 +1,17 @@
 local CryoLib = {}
-local tableFind = function(t, val)
+
+local function tableFind(t, val)
     for i, v in next, t do
         if v == val then return i end
     end
+    return nil
 end
 
 function CryoLib:CreateWindow(title)
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
     local UserInputService = game:GetService("UserInputService")
+    local RunService = game:GetService("RunService")
     local player = Players.LocalPlayer
 
     local accentColor = Color3.fromRGB(120, 170, 255)
@@ -288,7 +291,7 @@ function CryoLib:CreateWindow(title)
     closeButton.Size = UDim2.new(0, 30, 0, 30)
     closeButton.Position = UDim2.new(1, -40, 0, 12)
     closeButton.BackgroundTransparency = 1
-    closeButton.Text = "x"
+    closeButton.Text = "×"
     closeButton.Font = Enum.Font.GothamBlack
     closeButton.TextSize = 24
     closeButton.TextColor3 = Color3.fromRGB(150, 150, 150)
@@ -311,7 +314,7 @@ function CryoLib:CreateWindow(title)
     minimizeButton.Size = UDim2.new(0, 30, 0, 30)
     minimizeButton.Position = UDim2.new(1, -72, 0, 12)
     minimizeButton.BackgroundTransparency = 1
-    minimizeButton.Text = "-"
+    minimizeButton.Text = "−"
     minimizeButton.Font = Enum.Font.GothamBlack
     minimizeButton.TextSize = 28
     minimizeButton.TextColor3 = Color3.fromRGB(150, 150, 150)
@@ -543,14 +546,16 @@ function CryoLib:CreateWindow(title)
                 setState(not active)
             end)
 
-            table.insert(windowData.toggles, {
+            local toggleData = {
+                name = text,
                 active = false,
                 callback = callback,
                 bg = bg,
                 knob = knob,
                 set = setState,
                 get = function() return active end
-            })
+            }
+            table.insert(windowData.toggles, toggleData)
 
             return {
                 Set = setState,
@@ -559,6 +564,7 @@ function CryoLib:CreateWindow(title)
         end
 
         function tab:CreateSlider(text, min, max, default, callback)
+            local value = default or min
             local frame = Instance.new("Frame")
             frame.Size = UDim2.new(1, -4, 0, 68)
             frame.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
@@ -573,7 +579,7 @@ function CryoLib:CreateWindow(title)
             label.Size = UDim2.new(1, -24, 0, 22)
             label.Position = UDim2.new(0, 14, 0, 10)
             label.BackgroundTransparency = 1
-            label.Text = text .. ": " .. default
+            label.Text = text .. ": " .. value
             label.Font = Enum.Font.GothamBold
             label.TextSize = 14
             label.TextColor3 = Color3.fromRGB(220, 220, 235)
@@ -592,7 +598,7 @@ function CryoLib:CreateWindow(title)
             trackCorner.CornerRadius = UDim.new(1, 0)
             trackCorner.Parent = track
 
-            local p = math.clamp((default - min) / (max - min), 0, 1)
+            local p = math.clamp((value - min) / (max - min), 0, 1)
             local fill = Instance.new("Frame")
             fill.Size = UDim2.new(p, 0, 1, 0)
             fill.BackgroundColor3 = accentColor
@@ -618,11 +624,11 @@ function CryoLib:CreateWindow(title)
             local function update()
                 local mouseX = UserInputService:GetMouseLocation().X
                 local m = math.clamp((mouseX - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
-                local val = math.floor(min + (m * (max - min)))
-                label.Text = text .. ": " .. val
+                value = math.floor(min + (m * (max - min)))
+                label.Text = text .. ": " .. value
                 fill.Size = UDim2.new(m, 0, 1, 0)
                 handle.Position = UDim2.new(m, -8, 0.5, -8)
-                callback(val)
+                callback(value)
             end
 
             track.InputBegan:Connect(function(input)
@@ -641,6 +647,21 @@ function CryoLib:CreateWindow(title)
                     dragging = false
                 end
             end)
+
+            local sliderObj = {}
+            function sliderObj:Set(newValue)
+                newValue = math.clamp(newValue, min, max)
+                value = newValue
+                local newP = (value - min) / (max - min)
+                label.Text = text .. ": " .. value
+                fill.Size = UDim2.new(newP, 0, 1, 0)
+                handle.Position = UDim2.new(newP, -8, 0.5, -8)
+                callback(value)
+            end
+            function sliderObj:Get()
+                return value
+            end
+            return sliderObj
         end
 
         function tab:CreateButton(text, callback)
@@ -658,6 +679,7 @@ function CryoLib:CreateWindow(title)
             btnCorner.CornerRadius = UDim.new(0, 10)
             btnCorner.Parent = btn
             btn.MouseButton1Click:Connect(callback)
+            return btn
         end
 
         function tab:CreateLabel(text)
@@ -671,11 +693,13 @@ function CryoLib:CreateWindow(title)
             lbl.TextXAlignment = Enum.TextXAlignment.Left
             lbl.ZIndex = 12
             lbl.Parent = scroll
+            return lbl
         end
 
         function tab:CreateKeybind(text, defaultKey, callback)
             local key = defaultKey or "None"
             local binding = false
+            local hotkeyConn
 
             local frame = Instance.new("Frame")
             frame.Size = UDim2.new(1, -4, 0, 48)
@@ -714,12 +738,18 @@ function CryoLib:CreateWindow(title)
             keyCorner.CornerRadius = UDim.new(0, 6)
             keyCorner.Parent = keyButton
 
-            local hotkeyConn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-                if gameProcessed or binding then return end
-                if input.KeyCode == Enum.KeyCode[key] then
-                    callback(key)
+            local function updateHotkeyConnection()
+                if hotkeyConn then hotkeyConn:Disconnect() end
+                if key ~= "None" and key ~= "..." then
+                    hotkeyConn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+                        if gameProcessed or binding then return end
+                        if input.KeyCode == Enum.KeyCode[key] then
+                            callback(key)
+                        end
+                    end)
                 end
-            end)
+            end
+            updateHotkeyConnection()
 
             keyButton.MouseButton1Click:Connect(function()
                 binding = true
@@ -739,14 +769,18 @@ function CryoLib:CreateWindow(title)
                 keyButton.Text = key
                 binding = false
                 keyButton.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+                updateHotkeyConnection()
             end)
 
-            table.insert(windowData.keybinds, hotkeyConn)
             table.insert(windowData.keybinds, bindConn)
 
             return {
                 GetKey = function() return key end,
-                SetKey = function(k) key = k; keyButton.Text = k end
+                SetKey = function(k) 
+                    key = k
+                    keyButton.Text = k
+                    updateHotkeyConnection()
+                end
             }
         end
 
@@ -756,6 +790,7 @@ function CryoLib:CreateWindow(title)
             local g = math.floor(color.G * 255)
             local b = math.floor(color.B * 255)
             local expanded = false
+            local sliders = {}
 
             local frame = Instance.new("Frame")
             frame.Size = UDim2.new(1, -4, 0, 52)
@@ -799,7 +834,7 @@ function CryoLib:CreateWindow(title)
             arrow.Size = UDim2.new(0, 24, 0, 24)
             arrow.Position = UDim2.new(1, -24, 0, 14)
             arrow.BackgroundTransparency = 1
-            arrow.Text = "v"
+            arrow.Text = "▼"
             arrow.Font = Enum.Font.GothamBold
             arrow.TextSize = 12
             arrow.TextColor3 = Color3.fromRGB(150, 150, 165)
@@ -917,11 +952,22 @@ function CryoLib:CreateWindow(title)
                         dragging = false
                     end
                 end)
+
+                return {
+                    Set = function(v)
+                        local newM = v / 255
+                        fill.Size = UDim2.new(newM, 0, 1, 0)
+                        handle.Position = UDim2.new(newM, -7, 0.5, -7)
+                        valLbl.Text = tostring(v)
+                        onChange(v)
+                        updateColor()
+                    end
+                }
             end
 
-            makeSlider(0, "R", Color3.fromRGB(255, 60, 60), r, function(v) r = v end)
-            makeSlider(28, "G", Color3.fromRGB(60, 255, 60), g, function(v) g = v end)
-            makeSlider(56, "B", Color3.fromRGB(60, 120, 255), b, function(v) b = v end)
+            table.insert(sliders, makeSlider(0, "R", Color3.fromRGB(255, 60, 60), r, function(v) r = v end))
+            table.insert(sliders, makeSlider(28, "G", Color3.fromRGB(60, 255, 60), g, function(v) g = v end))
+            table.insert(sliders, makeSlider(56, "B", Color3.fromRGB(60, 120, 255), b, function(v) b = v end))
 
             local clickArea = Instance.new("TextButton")
             clickArea.Size = UDim2.new(1, 0, 0, 52)
@@ -933,19 +979,26 @@ function CryoLib:CreateWindow(title)
                 expanded = not expanded
                 if expanded then
                     frame.Size = UDim2.new(1, -4, 0, 180)
-                    arrow.Text = "A"
+                    arrow.Text = "▲"
                 else
                     frame.Size = UDim2.new(1, -4, 0, 52)
-                    arrow.Text = "v"
+                    arrow.Text = "▼"
                 end
             end)
 
             return {
                 GetColor = function() return color end,
                 SetColor = function(c)
-                    r = math.floor(c.R * 255); g = math.floor(c.G * 255); b = math.floor(c.B * 255)
-                    color = c; preview.BackgroundColor3 = c
+                    r = math.floor(c.R * 255)
+                    g = math.floor(c.G * 255)
+                    b = math.floor(c.B * 255)
+                    color = c
+                    preview.BackgroundColor3 = c
                     hexLabel.Text = string.format("#%02X%02X%02X", r, g, b)
+                    for i, slider in ipairs(sliders) do
+                        local v = i == 1 and r or i == 2 and g or b
+                        slider.Set(v)
+                    end
                 end
             }
         end
@@ -981,7 +1034,7 @@ function CryoLib:CreateWindow(title)
             arrowLabel.Size = UDim2.new(0, 24, 0, 24)
             arrowLabel.Position = UDim2.new(1, -34, 0.5, -12)
             arrowLabel.BackgroundTransparency = 1
-            arrowLabel.Text = "v"
+            arrowLabel.Text = "▼"
             arrowLabel.Font = Enum.Font.GothamBold
             arrowLabel.TextSize = 12
             arrowLabel.TextColor3 = Color3.fromRGB(150, 150, 165)
@@ -1046,7 +1099,7 @@ function CryoLib:CreateWindow(title)
                         local check = Instance.new("TextLabel")
                         check.Size = UDim2.new(1, 0, 1, 0)
                         check.BackgroundTransparency = 1
-                        check.Text = "Y"
+                        check.Text = "✓"
                         check.Font = Enum.Font.GothamBold
                         check.TextSize = 10
                         check.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1055,6 +1108,8 @@ function CryoLib:CreateWindow(title)
                     end
                 end
             end
+
+            local closeDropdown, openDropdown
 
             local function makeItem(option)
                 local itemBtn = Instance.new("TextButton")
@@ -1110,9 +1165,9 @@ function CryoLib:CreateWindow(title)
                 listFrame.Size = UDim2.new(0, absSize.X, 0, listFrame.Size.Y.Offset)
             end
 
-            local function openDropdown()
+            openDropdown = function()
                 open = true
-                arrowLabel.Text = "A"
+                arrowLabel.Text = "▲"
                 positionList()
                 listFrame.Visible = true
                 updateItems()
@@ -1121,9 +1176,9 @@ function CryoLib:CreateWindow(title)
                 }):Play()
             end
 
-            local function closeDropdown()
+            closeDropdown = function()
                 open = false
-                arrowLabel.Text = "v"
+                arrowLabel.Text = "▼"
                 TweenService:Create(listFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
                     Size = UDim2.new(0, listFrame.Size.X.Offset, 0, 0)
                 }):Play()
@@ -1141,13 +1196,29 @@ function CryoLib:CreateWindow(title)
                 end
             end)
 
+            -- Обновляем позицию при движении окна
+            local posConn = RunService.RenderStepped:Connect(function()
+                if open then
+                    positionList()
+                end
+            end)
+
             local dropdownData = {
                 open = false,
                 listFrame = listFrame,
                 buttonFrame = frame,
-                close = closeDropdown
+                close = function()
+                    closeDropdown()
+                end
             }
             table.insert(windowData.dropdowns, dropdownData)
+
+            -- Переопределяем close для обновления флага
+            local originalClose = dropdownData.close
+            dropdownData.close = function()
+                open = false
+                originalClose()
+            end
 
             return {
                 GetSelected = function() return multi and selected or selected end,
@@ -1165,6 +1236,7 @@ function CryoLib:CreateWindow(title)
         for _, t in ipairs(windowData.toggles) do
             if t.name == name then return t end
         end
+        return nil
     end
 
     return windowData
