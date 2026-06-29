@@ -24,7 +24,15 @@ function CryoLib:CreateWindow(title)
         minimized = false
     }
 
-    -- Простое свечение
+    -- Закрыть все дропдауны
+    local function closeAllDropdowns()
+        for _, dd in ipairs(windowData.dropdowns) do
+            if dd.open then
+                dd.close()
+            end
+        end
+    end
+
     local function addGlow(frame, color)
         local stroke = Instance.new("UIStroke")
         stroke.Color = color
@@ -34,21 +42,18 @@ function CryoLib:CreateWindow(title)
         stroke.Parent = frame
     end
 
-    -- Создаём UI
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "CryoLib"
     screenGui.ResetOnSpawn = false
     screenGui.DisplayOrder = 999
     screenGui.Parent = player:WaitForChild("PlayerGui")
 
-    -- Оверлей для дропдаунов
     local dropdownOverlay = Instance.new("Frame")
     dropdownOverlay.Size = UDim2.new(1, 0, 1, 0)
     dropdownOverlay.BackgroundTransparency = 1
     dropdownOverlay.ZIndex = 1000
     dropdownOverlay.Parent = screenGui
 
-    -- Кнопка-поплавок
     local floatButton = Instance.new("ImageButton")
     floatButton.Size = UDim2.new(0, 48, 0, 48)
     floatButton.Position = UDim2.new(0, 24, 0.5, -24)
@@ -61,7 +66,6 @@ function CryoLib:CreateWindow(title)
     floatCorner.Parent = floatButton
     addGlow(floatButton, accentColor)
 
-    -- Драг кнопки
     local isDragging, dragStart, dragPos
     floatButton.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -87,7 +91,6 @@ function CryoLib:CreateWindow(title)
         end
     end)
 
-    -- Главная панель
     local mainPanel = Instance.new("Frame")
     mainPanel.Size = UDim2.new(0, 440, 0, 540)
     mainPanel.Position = UDim2.new(0.5, -220, 0.5, -270)
@@ -100,7 +103,6 @@ function CryoLib:CreateWindow(title)
     mainCorner.Parent = mainPanel
     addGlow(mainPanel, accentColor)
 
-    -- Панель вкладок
     local tabPanel = Instance.new("Frame")
     tabPanel.Size = UDim2.new(0, 110, 1, -54)
     tabPanel.Position = UDim2.new(0, 0, 0, 54)
@@ -112,7 +114,6 @@ function CryoLib:CreateWindow(title)
     tabCorner.CornerRadius = UDim.new(0, 16)
     tabCorner.Parent = tabPanel
 
-    -- Заплатка для скругления
     local tabPatch = Instance.new("Frame")
     tabPatch.Size = UDim2.new(0.5, 0, 1, 0)
     tabPatch.Position = UDim2.new(0.5, 0, 0, 0)
@@ -121,7 +122,6 @@ function CryoLib:CreateWindow(title)
     tabPatch.ZIndex = 11
     tabPatch.Parent = tabPanel
 
-    -- Контент
     local contentArea = Instance.new("Frame")
     contentArea.Size = UDim2.new(1, -110, 1, -54)
     contentArea.Position = UDim2.new(0, 110, 0, 54)
@@ -129,12 +129,10 @@ function CryoLib:CreateWindow(title)
     contentArea.ZIndex = 11
     contentArea.Parent = mainPanel
 
-    -- Сохранённые размеры
     local normalSize = UDim2.new(0, 440, 0, 540)
     local normalPos = UDim2.new(0.5, -220, 0.5, -270)
     local miniSize = UDim2.new(0, 440, 0, 54)
 
-    -- Анимации
     local function showPanel()
         mainPanel.Visible = true
         TweenService:Create(mainPanel, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
@@ -147,6 +145,7 @@ function CryoLib:CreateWindow(title)
     end
 
     local function hidePanel()
+        closeAllDropdowns()
         TweenService:Create(mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
             Size = UDim2.new(0, 0, 0, 0),
             Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -159,6 +158,7 @@ function CryoLib:CreateWindow(title)
     end
 
     local function toggleMinimize()
+        closeAllDropdowns()
         if windowData.minimized then
             TweenService:Create(mainPanel, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
                 Size = normalSize
@@ -180,12 +180,8 @@ function CryoLib:CreateWindow(title)
         if windowData.closed then return end
         windowData.closed = true
 
-        -- Закрываем дропдауны
-        for _, dd in ipairs(windowData.dropdowns) do
-            if dd.open then dd.close() end
-        end
+        closeAllDropdowns()
 
-        -- Выключаем тогглы
         for _, toggle in ipairs(windowData.toggles) do
             if toggle.active then
                 toggle.active = false
@@ -229,12 +225,9 @@ function CryoLib:CreateWindow(title)
 
     floatButton.MouseButton1Click:Connect(toggleGui)
 
-    -- Динамическая клавиша GUI
     local guiKeyConnection
     local function setGuiKeybind(key)
-        if guiKeyConnection then
-            guiKeyConnection:Disconnect()
-        end
+        if guiKeyConnection then guiKeyConnection:Disconnect() end
         guiKey = key
         guiKeyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
             if not gameProcessed and input.KeyCode == Enum.KeyCode[key] then
@@ -252,7 +245,6 @@ function CryoLib:CreateWindow(title)
         return guiKey
     end
 
-    -- Шапка
     local header = Instance.new("Frame")
     header.Size = UDim2.new(1, 0, 0, 54)
     header.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
@@ -271,7 +263,6 @@ function CryoLib:CreateWindow(title)
     headerPatch.ZIndex = 11
     headerPatch.Parent = header
 
-    -- Логотип
     local logo = Instance.new("ImageLabel")
     logo.Size = UDim2.new(0, 30, 0, 30)
     logo.Position = UDim2.new(0, 16, 0, 12)
@@ -281,7 +272,6 @@ function CryoLib:CreateWindow(title)
     logo.ZIndex = 12
     logo.Parent = header
 
-    -- Заголовок
     local titleLabel = Instance.new("TextLabel")
     titleLabel.Size = UDim2.new(0, 200, 0, 30)
     titleLabel.Position = UDim2.new(0, 52, 0, 12)
@@ -294,7 +284,6 @@ function CryoLib:CreateWindow(title)
     titleLabel.ZIndex = 12
     titleLabel.Parent = header
 
-    -- Кнопка закрыть (красная при наведении)
     local closeButton = Instance.new("TextButton")
     closeButton.Size = UDim2.new(0, 30, 0, 30)
     closeButton.Position = UDim2.new(1, -40, 0, 12)
@@ -318,7 +307,6 @@ function CryoLib:CreateWindow(title)
         }):Play()
     end)
 
-    -- Кнопка свернуть (синяя при наведении)
     local minimizeButton = Instance.new("TextButton")
     minimizeButton.Size = UDim2.new(0, 30, 0, 30)
     minimizeButton.Position = UDim2.new(1, -72, 0, 12)
@@ -342,7 +330,6 @@ function CryoLib:CreateWindow(title)
         }):Play()
     end)
 
-    -- Драг панели
     local panelDrag, panelDragStart, panelDragPos
     header.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 and not windowData.closed then
@@ -369,7 +356,6 @@ function CryoLib:CreateWindow(title)
         end
     end)
 
-    -- Индикатор вкладки
     local tabIndicator = Instance.new("Frame")
     tabIndicator.Size = UDim2.new(0, 3, 0, 0)
     tabIndicator.Position = UDim2.new(0, 8, 0, 0)
@@ -379,7 +365,6 @@ function CryoLib:CreateWindow(title)
     tabIndicator.ZIndex = 12
     tabIndicator.Parent = tabPanel
 
-    -- Закрытие дропдаунов при клике мимо
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -404,7 +389,6 @@ function CryoLib:CreateWindow(title)
         end
     end)
 
-    -- Создание вкладки
     function windowData:CreateTab(name)
         local tab = {}
         local scroll = Instance.new("ScrollingFrame")
@@ -432,7 +416,6 @@ function CryoLib:CreateWindow(title)
         padding.PaddingRight = UDim.new(0, 4)
         padding.Parent = scroll
 
-        -- Кнопка вкладки
         local tabButton = Instance.new("TextButton")
         tabButton.Size = UDim2.new(1, -16, 0, 38)
         tabButton.Position = UDim2.new(0, 8, 0, #windowData.tabs * 42 + 12)
@@ -482,7 +465,6 @@ function CryoLib:CreateWindow(title)
             background = tabBg
         })
 
-        -- Первая вкладка активна
         if #windowData.tabs == 1 then
             scroll.Visible = true
             tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -491,8 +473,6 @@ function CryoLib:CreateWindow(title)
             tabIndicator.Size = UDim2.new(0, 3, 0, 38)
             tabIndicator.Position = UDim2.new(0, 8, 0, tabButton.AbsolutePosition.Y - tabPanel.AbsolutePosition.Y)
         end
-
-        -- === ЭЛЕМЕНТЫ ===
 
         function tab:CreateToggle(text, callback)
             local active = false
@@ -563,15 +543,14 @@ function CryoLib:CreateWindow(title)
                 setState(not active)
             end)
 
-            local toggleData = {
+            table.insert(windowData.toggles, {
                 active = false,
                 callback = callback,
                 bg = bg,
                 knob = knob,
                 set = setState,
                 get = function() return active end
-            }
-            table.insert(windowData.toggles, toggleData)
+            })
 
             return {
                 Set = setState,
@@ -767,10 +746,7 @@ function CryoLib:CreateWindow(title)
 
             return {
                 GetKey = function() return key end,
-                SetKey = function(k)
-                    key = k
-                    keyButton.Text = k
-                end
+                SetKey = function(k) key = k; keyButton.Text = k end
             }
         end
 
@@ -967,11 +943,8 @@ function CryoLib:CreateWindow(title)
             return {
                 GetColor = function() return color end,
                 SetColor = function(c)
-                    r = math.floor(c.R * 255)
-                    g = math.floor(c.G * 255)
-                    b = math.floor(c.B * 255)
-                    color = c
-                    preview.BackgroundColor3 = c
+                    r = math.floor(c.R * 255); g = math.floor(c.G * 255); b = math.floor(c.B * 255)
+                    color = c; preview.BackgroundColor3 = c
                     hexLabel.Text = string.format("#%02X%02X%02X", r, g, b)
                 end
             }
@@ -1056,13 +1029,7 @@ function CryoLib:CreateWindow(title)
             local function updateLabel()
                 if multi then
                     local n = #selected
-                    if n == 0 then
-                        label.Text = text .. ": None"
-                    elseif n == 1 then
-                        label.Text = text .. ": " .. selected[1]
-                    else
-                        label.Text = text .. ": " .. n .. " selected"
-                    end
+                    label.Text = text .. ": " .. (n == 0 and "None" or n == 1 and selected[1] or n .. " selected")
                 else
                     label.Text = text .. ": " .. tostring(selected)
                 end
@@ -1115,11 +1082,7 @@ function CryoLib:CreateWindow(title)
                 itemBtn.MouseButton1Click:Connect(function()
                     if multi then
                         local found = tableFind(selected, option)
-                        if found then
-                            table.remove(selected, found)
-                        else
-                            table.insert(selected, option)
-                        end
+                        if found then table.remove(selected, found) else table.insert(selected, option) end
                         updateItems()
                         callback(selected)
                     else
@@ -1165,9 +1128,7 @@ function CryoLib:CreateWindow(title)
                     Size = UDim2.new(0, listFrame.Size.X.Offset, 0, 0)
                 }):Play()
                 task.delay(0.2, function()
-                    if not open then
-                        listFrame.Visible = false
-                    end
+                    if not open then listFrame.Visible = false end
                 end)
             end
 
@@ -1175,11 +1136,7 @@ function CryoLib:CreateWindow(title)
                 if open then
                     closeDropdown()
                 else
-                    for _, dd in ipairs(windowData.dropdowns) do
-                        if dd ~= dropdownData and dd.open then
-                            dd.close()
-                        end
-                    end
+                    closeAllDropdowns()
                     openDropdown()
                 end
             end)
@@ -1193,17 +1150,10 @@ function CryoLib:CreateWindow(title)
             table.insert(windowData.dropdowns, dropdownData)
 
             return {
-                GetSelected = function()
-                    return multi and selected or selected
-                end,
+                GetSelected = function() return multi and selected or selected end,
                 SetSelected = function(val)
-                    if multi then
-                        selected = type(val) == "table" and val or {val}
-                    else
-                        selected = val
-                    end
-                    updateLabel()
-                    updateItems()
+                    if multi then selected = type(val) == "table" and val or {val} else selected = val end
+                    updateLabel(); updateItems()
                 end
             }
         end
