@@ -55,6 +55,7 @@ function CryoLib:CreateWindow(title)
     dropdownOverlay.Size = UDim2.new(1, 0, 1, 0)
     dropdownOverlay.BackgroundTransparency = 1
     dropdownOverlay.ZIndex = 1000
+    dropdownOverlay.ClipsDescendants = true
     dropdownOverlay.Parent = screenGui
 
     local floatButton = Instance.new("ImageButton")
