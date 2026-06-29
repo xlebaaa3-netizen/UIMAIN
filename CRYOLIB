@@ -33,6 +33,15 @@ function CryoLib:CreateWindow(title)
         return conn
     end
 
+    local function disconnectAll()
+        for _, conn in ipairs(connections) do
+            if conn and conn.Connected then
+                conn:Disconnect()
+            end
+        end
+        connections = {}
+    end
+
     local function closeAllDropdowns()
         for _, dd in ipairs(windowData.dropdowns) do
             if dd.open then dd.close() end
@@ -52,7 +61,21 @@ function CryoLib:CreateWindow(title)
     screenGui.Name = "CryoLib"
     screenGui.ResetOnSpawn = false
     screenGui.DisplayOrder = 999
-    screenGui.Parent = player:WaitForChild("PlayerGui")
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    -- Безопасное добавление в PlayerGui
+    local function safeParent(gui)
+        local success, err = pcall(function()
+            gui.Parent = player:WaitForChild("PlayerGui")
+        end)
+        if not success then
+            task.wait(0.5)
+            pcall(function()
+                gui.Parent = player:WaitForChild("PlayerGui")
+            end)
+        end
+    end
+    safeParent(screenGui)
 
     local dropdownOverlay = Instance.new("Frame")
     dropdownOverlay.Size = UDim2.new(1, 0, 1, 0)
@@ -79,15 +102,35 @@ function CryoLib:CreateWindow(title)
             isDragging = true; dragStart = input.Position; dragPos = floatButton.Position
         end
     end))
-    track(UserInputService.InputChanged:Connect(function(input)
+    
+    local function onInputChanged(input)
         if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
             local delta = input.Position - dragStart
             floatButton.Position = UDim2.new(dragPos.X.Scale, dragPos.X.Offset + delta.X, dragPos.Y.Scale, dragPos.Y.Offset + delta.Y)
         end
-    end))
-    track(UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then isDragging = false end
-    end))
+        if panelDrag and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - panelDragStart
+            mainPanel.Position = UDim2.new(panelDragPos.X.Scale, panelDragPos.X.Offset + delta.X, panelDragPos.Y.Scale, panelDragPos.Y.Offset + delta.Y)
+            normalPos = mainPanel.Position
+        end
+        -- Обновление слайдеров
+        for _, sliderUpdate in ipairs(activeSliderUpdates) do
+            sliderUpdate()
+        end
+    end
+    track(UserInputService.InputChanged:Connect(onInputChanged))
+    
+    local function onInputEnded(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = false
+            panelDrag = false
+            -- Остановка всех слайдеров
+            for _, stopDrag in ipairs(sliderDragStops) do
+                stopDrag()
+            end
+        end
+    end
+    track(UserInputService.InputEnded:Connect(onInputEnded))
 
     local mainPanel = Instance.new("Frame")
     mainPanel.Size = UDim2.new(0, 440, 0, 540)
@@ -126,7 +169,13 @@ function CryoLib:CreateWindow(title)
     local function hidePanel()
         closeAllDropdowns()
         TweenService:Create(mainPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
-        task.delay(0.3, function() mainPanel.Visible = false; mainPanel.Size = normalSize; mainPanel.Position = normalPos end)
+        task.delay(0.3, function() 
+            if not windowData.closed then
+                mainPanel.Visible = false; 
+                mainPanel.Size = normalSize; 
+                mainPanel.Position = normalPos 
+            end
+        end)
     end
 
     local function toggleMinimize()
@@ -145,7 +194,8 @@ function CryoLib:CreateWindow(title)
         windowData.closed = true; closeAllDropdowns()
         for _, toggle in ipairs(windowData.toggles) do
             if toggle.active then
-                toggle.active = false; toggle.callback(false)
+                toggle.active = false; 
+                pcall(toggle.callback, false)
                 if toggle.bg then TweenService:Create(toggle.bg, TweenInfo.new(0.25), {BackgroundColor3 = Color3.fromRGB(50, 50, 65)}):Play() end
                 if toggle.knob then TweenService:Create(toggle.knob, TweenInfo.new(0.25), {Position = UDim2.new(0, 2, 0.5, -9)}):Play() end
             end
@@ -153,14 +203,13 @@ function CryoLib:CreateWindow(title)
         TweenService:Create(mainPanel, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
         TweenService:Create(floatButton, TweenInfo.new(0.4), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
         task.delay(0.6, function()
-            for _, conn in ipairs(connections) do
-                if conn then conn:Disconnect() end
-            end
-            screenGui:Destroy()
+            disconnectAll()
+            pcall(function() screenGui:Destroy() end)
         end)
     end
 
     local function toggleGui()
+        if windowData.closed then return end
         windowData.visible = not windowData.visible
         if windowData.visible then showPanel() else hidePanel() end
     end
@@ -169,11 +218,16 @@ function CryoLib:CreateWindow(title)
 
     local guiKeyConnection
     local function setGuiKeybind(key)
-        if guiKeyConnection then guiKeyConnection:Disconnect() end
+        if guiKeyConnection then 
+            pcall(function() guiKeyConnection:Disconnect() end) 
+        end
         guiKey = key
         guiKeyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-            if not gameProcessed and input.KeyCode == Enum.KeyCode[key] then toggleGui() end
+            if not gameProcessed and not windowData.closed and input.KeyCode == Enum.KeyCode[key] then 
+                toggleGui() 
+            end
         end)
+        track(guiKeyConnection)
     end
     setGuiKeybind("K")
 
@@ -218,23 +272,17 @@ function CryoLib:CreateWindow(title)
             panelDrag = true; panelDragStart = input.Position; panelDragPos = mainPanel.Position
         end
     end))
-    track(UserInputService.InputChanged:Connect(function(input)
-        if panelDrag and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - panelDragStart
-            mainPanel.Position = UDim2.new(panelDragPos.X.Scale, panelDragPos.X.Offset + delta.X, panelDragPos.Y.Scale, panelDragPos.Y.Offset + delta.Y)
-            normalPos = mainPanel.Position
-        end
-    end))
-    track(UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then panelDrag = false end
-    end))
+
+    -- Таблицы для отслеживания активных слайдеров
+    local activeSliderUpdates = {}
+    local sliderDragStops = {}
 
     local tabIndicator = Instance.new("Frame")
     tabIndicator.Size = UDim2.new(0, 3, 0, 0); tabIndicator.Position = UDim2.new(0, 8, 0, 0)
     tabIndicator.BackgroundColor3 = accentColor; tabIndicator.BorderSizePixel = 0; tabIndicator.Visible = false; tabIndicator.ZIndex = 12; tabIndicator.Parent = tabPanel
 
     track(UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
+        if gameProcessed or windowData.closed then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             local mousePos = UserInputService:GetMouseLocation()
             for _, dd in ipairs(windowData.dropdowns) do
@@ -304,7 +352,7 @@ function CryoLib:CreateWindow(title)
                 active = newState
                 TweenService:Create(bg, TweenInfo.new(0.25), {BackgroundColor3 = active and accentColor or Color3.fromRGB(50, 50, 65)}):Play()
                 TweenService:Create(knob, TweenInfo.new(0.25), {Position = active and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)}):Play()
-                callback(active)
+                pcall(callback, active)
             end
             button.MouseButton1Click:Connect(function() setState(not active) end)
 
@@ -315,6 +363,7 @@ function CryoLib:CreateWindow(title)
 
         function tab:CreateSlider(text, min, max, default, callback)
             local value = default or min
+            local dragging = false
             local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, -4, 0, 68); frame.BackgroundColor3 = Color3.fromRGB(28, 28, 36); frame.BorderSizePixel = 0; frame.ZIndex = 11; frame.Parent = scroll
             Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
             local label = Instance.new("TextLabel"); label.Size = UDim2.new(1, -24, 0, 22); label.Position = UDim2.new(0, 14, 0, 10); label.BackgroundTransparency = 1
@@ -327,21 +376,36 @@ function CryoLib:CreateWindow(title)
             local handle = Instance.new("Frame"); handle.Size = UDim2.new(0, 16, 0, 16); handle.Position = UDim2.new(p, -8, 0.5, -8); handle.BackgroundColor3 = Color3.fromRGB(255, 255, 255); handle.BorderSizePixel = 0; handle.ZIndex = 14; handle.Parent = track
             Instance.new("UICorner", handle).CornerRadius = UDim.new(1, 0)
 
-            local dragging = false
             local function update()
+                if not track or not track.Parent then return end
                 local m = math.clamp((UserInputService:GetMouseLocation().X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
                 value = math.floor(min + (m * (max - min)))
-                label.Text = text .. ": " .. value; fill.Size = UDim2.new(m, 0, 1, 0); handle.Position = UDim2.new(m, -8, 0.5, -8); callback(value)
+                label.Text = text .. ": " .. value; fill.Size = UDim2.new(m, 0, 1, 0); handle.Position = UDim2.new(m, -8, 0.5, -8)
+                pcall(callback, value)
             end
-            track.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; update() end end)
-            UserInputService.InputChanged:Connect(function(input) if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then update() end end)
-            UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+            
+            local sliderUpdateFunc = function()
+                if dragging then update() end
+            end
+            local sliderStopFunc = function()
+                dragging = false
+            end
+            
+            table.insert(activeSliderUpdates, sliderUpdateFunc)
+            table.insert(sliderDragStops, sliderStopFunc)
+            
+            track.InputBegan:Connect(function(input) 
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then 
+                    dragging = true; update() 
+                end 
+            end)
 
             local sliderObj = {}
             function sliderObj:Set(newValue)
                 newValue = math.clamp(newValue, min, max); value = newValue
                 local newP = (value - min) / (max - min)
-                label.Text = text .. ": " .. value; fill.Size = UDim2.new(newP, 0, 1, 0); handle.Position = UDim2.new(newP, -8, 0.5, -8); callback(value)
+                label.Text = text .. ": " .. value; fill.Size = UDim2.new(newP, 0, 1, 0); handle.Position = UDim2.new(newP, -8, 0.5, -8)
+                pcall(callback, value)
             end
             function sliderObj:Get() return value end
             return sliderObj
@@ -351,7 +415,7 @@ function CryoLib:CreateWindow(title)
             local btn = Instance.new("TextButton"); btn.Size = UDim2.new(1, -4, 0, 44); btn.BackgroundColor3 = accentColor; btn.Text = text
             btn.Font = Enum.Font.GothamBlack; btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.TextSize = 14; btn.AutoButtonColor = false; btn.ZIndex = 12; btn.Parent = scroll
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
-            btn.MouseButton1Click:Connect(callback)
+            btn.MouseButton1Click:Connect(function() pcall(callback) end)
             return btn
         end
 
@@ -376,21 +440,27 @@ function CryoLib:CreateWindow(title)
                 if hotkeyConn then hotkeyConn:Disconnect() end
                 if key ~= "None" and key ~= "..." then
                     hotkeyConn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-                        if gameProcessed or binding then return end
-                        if input.KeyCode == Enum.KeyCode[key] then callback(key) end
+                        if gameProcessed or binding or windowData.closed then return end
+                        if input.KeyCode == Enum.KeyCode[key] then pcall(callback, key) end
                     end)
+                    track(hotkeyConn)
                 end
             end
             updateHotkeyConnection()
 
-            keyButton.MouseButton1Click:Connect(function() binding = true; keyButton.Text = "..."; keyButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100) end)
+            keyButton.MouseButton1Click:Connect(function() 
+                binding = true; keyButton.Text = "..."; keyButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100) 
+            end)
 
             local bindConn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
                 if not binding or gameProcessed then return end
-                if input.KeyCode == Enum.KeyCode.Escape then binding = false; keyButton.Text = key; keyButton.BackgroundColor3 = Color3.fromRGB(40, 40, 55); return end
-                key = input.KeyCode.Name; keyButton.Text = key; binding = false; keyButton.BackgroundColor3 = Color3.fromRGB(40, 40, 55); updateHotkeyConnection()
+                if input.KeyCode == Enum.KeyCode.Escape then 
+                    binding = false; keyButton.Text = key; keyButton.BackgroundColor3 = Color3.fromRGB(40, 40, 55); return 
+                end
+                key = input.KeyCode.Name; keyButton.Text = key; binding = false; 
+                keyButton.BackgroundColor3 = Color3.fromRGB(40, 40, 55); updateHotkeyConnection()
             end)
-            table.insert(windowData.keybinds, bindConn)
+            track(bindConn)
             return {GetKey = function() return key end, SetKey = function(k) key = k; keyButton.Text = k; updateHotkeyConnection() end}
         end
 
@@ -413,29 +483,53 @@ function CryoLib:CreateWindow(title)
             Instance.new("UICorner", hexLabel).CornerRadius = UDim.new(0, 4)
 
             local function updateColor()
-                color = Color3.fromRGB(r, g, b); preview.BackgroundColor3 = color; hexLabel.Text = string.format("#%02X%02X%02X", r, g, b); callback(color)
+                color = Color3.fromRGB(r, g, b); preview.BackgroundColor3 = color; hexLabel.Text = string.format("#%02X%02X%02X", r, g, b)
+                pcall(callback, color)
             end
 
-            local function makeSlider(y, sliderLabel, sliderColor, value, onChange)
+            local function makeSlider(y, sliderLabel, sliderColor, initialValue, onChange)
+                local dragging = false
                 local track = Instance.new("Frame"); track.Size = UDim2.new(1, -60, 0, 8); track.Position = UDim2.new(0, 50, 0, y); track.BackgroundColor3 = Color3.fromRGB(45, 45, 60); track.BorderSizePixel = 0; track.ZIndex = 13; track.Parent = sliderContainer
                 Instance.new("UICorner", track).CornerRadius = UDim.new(1, 0)
-                local fill = Instance.new("Frame"); fill.Size = UDim2.new(value/255, 0, 1, 0); fill.BackgroundColor3 = sliderColor; fill.BorderSizePixel = 0; fill.ZIndex = 14; fill.Parent = track
+                local fill = Instance.new("Frame"); fill.Size = UDim2.new(initialValue/255, 0, 1, 0); fill.BackgroundColor3 = sliderColor; fill.BorderSizePixel = 0; fill.ZIndex = 14; fill.Parent = track
                 Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-                local handle = Instance.new("Frame"); handle.Size = UDim2.new(0, 14, 0, 14); handle.Position = UDim2.new(value/255, -7, 0.5, -7); handle.BackgroundColor3 = Color3.fromRGB(255, 255, 255); handle.BorderSizePixel = 0; handle.ZIndex = 15; handle.Parent = track
+                local handle = Instance.new("Frame"); handle.Size = UDim2.new(0, 14, 0, 14); handle.Position = UDim2.new(initialValue/255, -7, 0.5, -7); handle.BackgroundColor3 = Color3.fromRGB(255, 255, 255); handle.BorderSizePixel = 0; handle.ZIndex = 15; handle.Parent = track
                 Instance.new("UICorner", handle).CornerRadius = UDim.new(1, 0)
                 local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(0, 40, 0, 16); lbl.Position = UDim2.new(0, 0, 0, y-4); lbl.BackgroundTransparency = 1; lbl.Text = sliderLabel; lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 10; lbl.TextColor3 = sliderColor; lbl.ZIndex = 13; lbl.Parent = sliderContainer
-                local valLbl = Instance.new("TextLabel"); valLbl.Size = UDim2.new(0, 30, 0, 16); valLbl.Position = UDim2.new(1, -30, 0, y-4); valLbl.BackgroundTransparency = 1; valLbl.Text = tostring(value); valLbl.Font = Enum.Font.GothamBold; valLbl.TextSize = 10; valLbl.TextColor3 = Color3.fromRGB(180, 180, 180); valLbl.ZIndex = 13; valLbl.Parent = sliderContainer
+                local valLbl = Instance.new("TextLabel"); valLbl.Size = UDim2.new(0, 30, 0, 16); valLbl.Position = UDim2.new(1, -30, 0, y-4); valLbl.BackgroundTransparency = 1; valLbl.Text = tostring(initialValue); valLbl.Font = Enum.Font.GothamBold; valLbl.TextSize = 10; valLbl.TextColor3 = Color3.fromRGB(180, 180, 180); valLbl.ZIndex = 13; valLbl.Parent = sliderContainer
 
-                local dragging = false
                 local function update()
+                    if not track or not track.Parent then return end
                     local m = math.clamp((UserInputService:GetMouseLocation().X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
                     local val = math.floor(m * 255)
-                    fill.Size = UDim2.new(m, 0, 1, 0); handle.Position = UDim2.new(m, -7, 0.5, -7); valLbl.Text = tostring(val); onChange(val); updateColor()
+                    fill.Size = UDim2.new(m, 0, 1, 0); handle.Position = UDim2.new(m, -7, 0.5, -7); valLbl.Text = tostring(val)
+                    onChange(val); updateColor()
                 end
-                track.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; update() end end)
-                UserInputService.InputChanged:Connect(function(input) if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then update() end end)
-                UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-                return {Set = function(v) local newM = v/255; fill.Size = UDim2.new(newM, 0, 1, 0); handle.Position = UDim2.new(newM, -7, 0.5, -7); valLbl.Text = tostring(v); onChange(v); updateColor() end}
+                
+                local sliderUpdateFunc = function()
+                    if dragging then update() end
+                end
+                local sliderStopFunc = function()
+                    dragging = false
+                end
+                
+                table.insert(activeSliderUpdates, sliderUpdateFunc)
+                table.insert(sliderDragStops, sliderStopFunc)
+                
+                track.InputBegan:Connect(function(input) 
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then 
+                        dragging = true; update() 
+                    end 
+                end)
+                
+                return {Set = function(v) 
+                    local newM = math.clamp(v/255, 0, 1); 
+                    fill.Size = UDim2.new(newM, 0, 1, 0); 
+                    handle.Position = UDim2.new(newM, -7, 0.5, -7); 
+                    valLbl.Text = tostring(v); 
+                    onChange(v); 
+                    updateColor() 
+                end}
             end
 
             table.insert(sliders, makeSlider(0, "R", Color3.fromRGB(255, 60, 60), r, function(v) r = v end))
@@ -447,7 +541,11 @@ function CryoLib:CreateWindow(title)
                 expanded = not expanded
                 if expanded then frame.Size = UDim2.new(1, -4, 0, 180); arrow.Text = "A" else frame.Size = UDim2.new(1, -4, 0, 52); arrow.Text = "V" end
             end)
-            return {GetColor = function() return color end, SetColor = function(c) r = math.floor(c.R*255); g = math.floor(c.G*255); b = math.floor(c.B*255); color = c; preview.BackgroundColor3 = c; hexLabel.Text = string.format("#%02X%02X%02X", r, g, b); for i, s in ipairs(sliders) do s.Set(i==1 and r or i==2 and g or b) end end}
+            return {GetColor = function() return color end, SetColor = function(c) 
+                r = math.floor(c.R*255); g = math.floor(c.G*255); b = math.floor(c.B*255); color = c; 
+                preview.BackgroundColor3 = c; hexLabel.Text = string.format("#%02X%02X%02X", r, g, b); 
+                for i, s in ipairs(sliders) do s.Set(i==1 and r or i==2 and g or b) end 
+            end}
         end
 
         function tab:CreateDropdown(text, options, multi, callback)
@@ -583,11 +681,11 @@ function CryoLib:CreateWindow(title)
                         local found = tableFind(selected, option)
                         if found then table.remove(selected, found) else table.insert(selected, option) end
                         updateItems()
-                        callback(selected)
+                        pcall(callback, selected)
                     else
                         selected = option
                         updateItems()
-                        callback(selected)
+                        pcall(callback, selected)
                         open = false
                         arrowLabel.Text = "▼"
                         TweenService:Create(listFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
@@ -639,13 +737,16 @@ function CryoLib:CreateWindow(title)
             end
 
             local function closeDropdown()
+                if not open then return end
                 open = false
                 arrowLabel.Text = "▼"
-                TweenService:Create(listFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                    Size = UDim2.new(0, currentWidth, 0, 0)
-                }):Play()
+                pcall(function()
+                    TweenService:Create(listFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                        Size = UDim2.new(0, currentWidth, 0, 0)
+                    }):Play()
+                end)
                 task.delay(0.15, function()
-                    listFrame.Visible = false
+                    pcall(function() listFrame.Visible = false end)
                 end)
             end
 
@@ -674,14 +775,14 @@ function CryoLib:CreateWindow(title)
                     end
                 end
             end)
-            table.insert(connections, posConn)
+            track(posConn)
 
             local scrollConn = scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
                 if open then
                     closeDropdown()
                 end
             end)
-            table.insert(connections, scrollConn)
+            track(scrollConn)
 
             local dropdownData = {
                 open = false,
@@ -708,6 +809,19 @@ function CryoLib:CreateWindow(title)
         for _, t in ipairs(windowData.toggles) do if t.name == name then return t end end
         return nil
     end
+
+    -- Защита от смерти персонажа
+    local function onCharacterAdded(character)
+        -- Переподключаем GUI если нужно
+        if screenGui and screenGui.Parent == nil then
+            safeParent(screenGui)
+        end
+    end
+    
+    if player.Character then
+        onCharacterAdded(player.Character)
+    end
+    track(player.CharacterAdded:Connect(onCharacterAdded))
 
     return windowData
 end
